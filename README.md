@@ -12,7 +12,7 @@ The workflow is controlled through a central `config.yaml` file and is designed 
 > **Note:** This repository was developed as part of a master thesis project on reproducible long-read shotgun metagenomics pipeline development and benchmarking. Some paths, database locations and resource settings may need to be adapted before running the workflow on another system.
 
 
-![Long-read metagenomics pipeline workflow](_workflow_.png)
+<img src="_workflow_.png" alt="Workflow overview" width="600">
 
 
 ## Contents
