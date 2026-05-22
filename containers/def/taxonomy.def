@@ -1,0 +1,94 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Description "Taxonomy tools: Kraken2 + Centrifuger"
+
+%help
+    Tools included:
+      - kraken2
+      - kraken2-inspect
+      - centrifuger
+      - centrifuger-inspect
+      - centrifuger-quant
+
+    Intended use:
+      - classify reads against prebuilt external databases
+      - inspect external databases
+      - generate Centrifuger quantification tables
+
+%environment
+    export LC_ALL=C
+    export LANG=C
+    export PATH=/opt/kraken2:/opt/centrifuger/bin:$PATH
+
+%post
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        make \
+        g++ \
+        gcc \
+        perl \
+        python3 \
+        python3-pip \
+        zlib1g-dev \
+        libzstd-dev \
+        libbz2-dev \
+        liblzma-dev \
+        unzip \
+        gzip \
+        bzip2 \
+        ca-certificates \
+        wget \
+        curl \
+        git \
+        rsync \
+        file \
+        locales
+    rm -rf /var/lib/apt/lists/*
+
+    mkdir -p /opt/src /opt/kraken2 /opt/centrifuger/bin
+
+    cd /opt/src
+    git clone https://github.com/DerrickWood/kraken2.git
+    cd /opt/src/kraken2
+
+    ./install_kraken2.sh /opt/kraken2
+
+    cd /opt/src
+    git clone https://github.com/mourisl/centrifuger.git
+    cd /opt/src/centrifuger
+
+    make -j"$(nproc)"
+
+    cp centrifuger /opt/centrifuger/bin/
+    cp centrifuger-build /opt/centrifuger/bin/
+    cp centrifuger-inspect /opt/centrifuger/bin/
+    cp centrifuger-quant /opt/centrifuger/bin/
+    cp centrifuger-download /opt/centrifuger/bin/
+    cp centrifuger-kreport /opt/centrifuger/bin/
+    cp centrifuger-promote /opt/centrifuger/bin/
+
+    chmod +x /opt/centrifuger/bin/*
+
+    ln -sf /opt/kraken2/kraken2 /usr/local/bin/kraken2
+    ln -sf /opt/kraken2/kraken2-inspect /usr/local/bin/kraken2-inspect
+    ln -sf /opt/centrifuger/bin/centrifuger /usr/local/bin/centrifuger
+    ln -sf /opt/centrifuger/bin/centrifuger-inspect /usr/local/bin/centrifuger-inspect
+    ln -sf /opt/centrifuger/bin/centrifuger-quant /usr/local/bin/centrifuger-quant
+
+    rm -rf /opt/src
+
+%test
+    command -v kraken2 >/dev/null
+    command -v kraken2-inspect >/dev/null
+    command -v centrifuger >/dev/null
+    command -v centrifuger-inspect >/dev/null
+    command -v centrifuger-quant >/dev/null
+
+%runscript
+    export PATH=/opt/kraken2:/opt/centrifuger/bin:$PATH
+    exec "$@"

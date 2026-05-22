@@ -1,0 +1,54 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author your_name
+    Description "MetaBAT2 container with minimap2 and jgi_summarize_bam_contig_depths"
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        wget curl git bzip2 ca-certificates gzip unzip file locales \
+        python3 python3-pip
+    rm -rf /var/lib/apt/lists/*
+
+    wget -qO /tmp/miniforge.sh \
+        https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+    bash /tmp/miniforge.sh -b -p /opt/conda
+    rm -f /tmp/miniforge.sh
+
+    export PATH=/opt/conda/bin:$PATH
+
+    conda config --system --remove-key channels || true
+    conda config --system --add channels conda-forge
+    conda config --system --add channels bioconda
+    conda config --system --set channel_priority strict
+
+    conda create -y -n metabat2 \
+        --override-channels \
+        -c conda-forge -c bioconda \
+        python=3.10 \
+        minimap2 \
+        samtools \
+        metabat2
+
+    conda clean -afy
+
+%environment
+    export LC_ALL=C
+    export LANG=C
+    export PATH=/opt/conda/envs/metabat2/bin:/opt/conda/bin:$PATH
+
+%runscript
+    exec /bin/bash "$@"
+
+%test
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate metabat2
+    minimap2 --version
+    samtools --version | head -n 1
+    metabat2 --help >/dev/null
+    jgi_summarize_bam_contig_depths --help >/dev/null

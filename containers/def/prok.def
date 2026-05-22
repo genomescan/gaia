@@ -1,0 +1,196 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Author your_name
+    Description "Prokaryotic refinement and classification container: DAS Tool + CheckM2 + GTDB-Tk"
+
+%help
+    Includes:
+      - DAS_Tool
+      - checkm2
+      - gtdbtk
+      - prodigal
+      - diamond
+      - hmmer
+      - pplacer
+      - FastTree
+      - blast
+      - pullseq
+      - R / Rscript (required by DAS Tool)
+
+    Layout:
+      - /opt/conda/envs/checkm2_env   -> CheckM2 stack (Python 3.8)
+      - /opt/conda/envs/gtdbtk_env    -> GTDB-Tk stack (Python 3.10)
+      - /opt/DAS_Tool                 -> DAS Tool source install
+
+    Notes:
+      - DAS Tool db directory: /opt/DAS_Tool/db
+      - Set config refinement.prok.dastool_params.db_directory: "/opt/DAS_Tool/db"
+
+%environment
+    export LC_ALL=C
+    export LANG=C
+    export PATH=/usr/local/bin:/opt/DAS_Tool:/opt/conda/bin:$PATH
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        wget curl git ca-certificates bzip2 gzip unzip file locales \
+        perl ruby \
+        r-base r-base-dev \
+        r-cran-data.table \
+        r-cran-magrittr \
+        r-cran-docopt \
+        python3 python3-pip
+    rm -rf /var/lib/apt/lists/*
+
+    wget -qO /tmp/miniforge.sh \
+        https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+    bash /tmp/miniforge.sh -b -p /opt/conda
+    rm -f /tmp/miniforge.sh
+
+    export PATH=/opt/conda/bin:$PATH
+
+    conda config --system --remove-key channels || true
+    conda config --system --add channels conda-forge
+    conda config --system --add channels bioconda
+    conda config --system --set channel_priority strict
+
+    conda create -y -n checkm2_env \
+        --override-channels \
+        -c conda-forge -c bioconda \
+        python=3.8 \
+        checkm2=1.0.2 \
+        diamond \
+        prodigal \
+        pullseq \
+        blast
+
+    conda create -y -n gtdbtk_env \
+        --override-channels \
+        -c conda-forge -c bioconda \
+        python=3.10 \
+        gtdbtk \
+        prodigal \
+        hmmer \
+        pplacer \
+        fasttree \
+        blast \
+        fastani \
+        skani \
+        diamond
+
+    mkdir -p /opt
+    git clone https://github.com/cmks/DAS_Tool.git /opt/DAS_Tool
+
+    cd /opt/DAS_Tool
+    chmod +x /opt/DAS_Tool/DAS_Tool
+    find /opt/DAS_Tool/src -type f -name "*.sh" -exec chmod +x {} \;
+
+    rm -rf /opt/DAS_Tool/db /opt/DAS_Tool/db_extract_tmp
+    mkdir -p /opt/DAS_Tool/db_extract_tmp /opt/DAS_Tool/db
+
+    unzip -q /opt/DAS_Tool/db.zip -d /opt/DAS_Tool/db_extract_tmp
+
+    python3 - <<'PY'
+from pathlib import Path
+import shutil
+
+tmp = Path("/opt/DAS_Tool/db_extract_tmp")
+target = Path("/opt/DAS_Tool/db")
+
+entries = list(tmp.iterdir())
+
+if len(entries) == 1 and entries[0].is_dir():
+    source = entries[0]
+else:
+    source = tmp
+
+for p in source.iterdir():
+    dest = target / p.name
+    if p.is_dir():
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(p, dest)
+    else:
+        shutil.copy2(p, dest)
+PY
+
+    rm -rf /opt/DAS_Tool/db_extract_tmp
+
+    test -d /opt/DAS_Tool/db
+    test "$(find /opt/DAS_Tool/db -mindepth 1 | wc -l)" -gt 0
+
+    cat > /usr/local/bin/DAS_Tool <<'EOF'
+#!/usr/bin/env bash
+export PATH=/opt/DAS_Tool:/usr/local/bin:/opt/conda/bin:$PATH
+exec /opt/DAS_Tool/DAS_Tool "$@"
+EOF
+    chmod +x /usr/local/bin/DAS_Tool
+
+    cat > /usr/local/bin/checkm2 <<'EOF'
+#!/usr/bin/env bash
+exec /opt/conda/envs/checkm2_env/bin/checkm2 "$@"
+EOF
+    chmod +x /usr/local/bin/checkm2
+
+    cat > /usr/local/bin/gtdbtk <<'EOF'
+#!/usr/bin/env bash
+exec /opt/conda/envs/gtdbtk_env/bin/gtdbtk "$@"
+EOF
+    chmod +x /usr/local/bin/gtdbtk
+
+    cat > /usr/local/bin/Rscript <<'EOF'
+#!/usr/bin/env bash
+exec /usr/bin/Rscript "$@"
+EOF
+    chmod +x /usr/local/bin/Rscript
+
+    for tool in diamond prodigal pullseq hmmsearch hmmalign hmmpress hmmscan pplacer guppy FastTree fastANI skani blastp blastn makeblastdb; do
+        if [ -x "/opt/conda/envs/gtdbtk_env/bin/$tool" ]; then
+            cat > "/usr/local/bin/$tool" <<EOF
+#!/usr/bin/env bash
+exec /opt/conda/envs/gtdbtk_env/bin/$tool "\$@"
+EOF
+            chmod +x "/usr/local/bin/$tool"
+        elif [ -x "/opt/conda/envs/checkm2_env/bin/$tool" ]; then
+            cat > "/usr/local/bin/$tool" <<EOF
+#!/usr/bin/env bash
+exec /opt/conda/envs/checkm2_env/bin/$tool "\$@"
+EOF
+            chmod +x "/usr/local/bin/$tool"
+        fi
+    done
+
+    conda clean -afy
+
+%runscript
+    export PATH=/usr/local/bin:/opt/DAS_Tool:/opt/conda/bin:$PATH
+    exec "$@"
+
+%test
+    export PATH=/usr/local/bin:/opt/DAS_Tool:/opt/conda/bin:$PATH
+
+    command -v DAS_Tool >/dev/null
+    command -v Rscript >/dev/null
+    command -v checkm2 >/dev/null
+    command -v gtdbtk >/dev/null
+    command -v diamond >/dev/null
+    command -v prodigal >/dev/null
+    command -v pullseq >/dev/null
+    command -v hmmsearch >/dev/null
+    command -v pplacer >/dev/null
+
+    test -d /opt/DAS_Tool/db
+    test "$(find /opt/DAS_Tool/db -mindepth 1 | wc -l)" -gt 0
+
+    Rscript --version >/dev/null
+    Rscript -e "library(data.table); library(magrittr); library(docopt)"
+    pullseq 2>/dev/null || true
+    DAS_Tool --help >/dev/null
+    checkm2 predict --help >/dev/null
+    gtdbtk classify_wf --help >/dev/null

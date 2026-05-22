@@ -1,0 +1,213 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%labels
+    Description "Eukaryotic refinement container with upstream ACR kept unmodified"
+
+%environment
+    export LC_ALL=C
+    export LANG=C
+    export MPLCONFIGDIR=/var/tmp/matplotlib
+    export ACR_HOME=/opt/ACR
+    export PATH=/usr/local/bin:/opt/conda/envs/acr_env/bin:/opt/conda/envs/euk_modern/bin:/opt/conda/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:${LD_LIBRARY_PATH:-}
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    export TMPDIR=/var/tmp/apptainer_build_tmp
+    export CONDA_PKGS_DIRS=/var/tmp/conda_pkgs
+    mkdir -p "$TMPDIR" /var/tmp/matplotlib "$CONDA_PKGS_DIRS"
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        wget curl git ca-certificates bzip2 gzip unzip file locales \
+        python3 python3-pip perl sed gawk coreutils bash libgomp1
+    rm -rf /var/lib/apt/lists/*
+
+    rm -rf /opt/conda
+    wget -qO /var/tmp/miniforge.sh \
+        https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+    bash /var/tmp/miniforge.sh -b -p /opt/conda
+    rm -f /var/tmp/miniforge.sh
+
+    export PATH=/opt/conda/bin:$PATH
+
+    conda config --system --remove-key channels || true
+    conda config --system --add channels conda-forge
+    conda config --system --add channels bioconda
+    conda config --system --add channels defaults
+    conda config --system --set channel_priority flexible
+    conda config --system --set solver classic
+
+    conda create -y -n acr_env \
+        python=3.7.12 \
+        biopython=1.79 \
+        ete3=3.1.3 \
+        eukcc=0.2 \
+        eukrep=0.6.7 \
+        hmmer=3.4 \
+        diamond=2.1.24 \
+        pandas=1.1.2 \
+        numpy=1.21.6 \
+        scipy=1.7.3 \
+        pplacer=1.1.alpha22 \
+        prodigal=2.6.3 \
+        pyfaidx=0.9.0.3 \
+        pygmes=0.1.7 \
+        pyyaml=6.0 \
+        pip=24.0
+
+    /opt/conda/envs/acr_env/bin/pip install --no-cache-dir \
+        kmeans1d==0.3.1
+
+    conda create -y -n euk_modern \
+        python=3.10 \
+        drep \
+        minimap2 \
+        bwa \
+        samtools \
+        diamond \
+        prodigal \
+        hmmer \
+        pandas \
+        biopython \
+        cat
+
+    git clone https://github.com/hoonjeseong/acr.git /opt/ACR
+    chmod +x /opt/ACR/acr.py
+
+    # Keep upstream ACR unmodified.
+    # Upstream expects DB at /opt/ACR/data, so point that to a runtime-writable location.
+    mkdir -p /tmp
+    rm -rf /opt/ACR/data
+    ln -s /tmp/acr_db /opt/ACR/data
+
+    cat > /usr/local/bin/runGMES <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "runGMES stub: validation-only placeholder for workflows using -m N" >&2
+exit 0
+EOF
+    chmod +x /usr/local/bin/runGMES
+
+    cat > /usr/local/bin/acr <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+export ACR_HOME="${ACR_HOME:-/opt/ACR}"
+export PATH="/usr/local/bin:/opt/conda/envs/acr_env/bin:/opt/conda/envs/euk_modern/bin:/opt/conda/bin:${PATH}"
+export LD_LIBRARY_PATH="/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:${LD_LIBRARY_PATH:-}"
+
+if [ ! -f "${ACR_HOME}/acr.py" ]; then
+    echo "ERROR: ACR script not found at ${ACR_HOME}/acr.py" >&2
+    exit 1
+fi
+
+if [ -z "${ACR_DB_PATH:-}" ]; then
+    echo "ERROR: ACR_DB_PATH is not set." >&2
+    exit 1
+fi
+
+if [ ! -d "${ACR_DB_PATH}" ]; then
+    echo "ERROR: ACR_DB_PATH does not exist: ${ACR_DB_PATH}" >&2
+    exit 1
+fi
+
+if [ ! -d "${ACR_DB_PATH}/eukcc" ]; then
+    echo "ERROR: Missing ACR DB directory: ${ACR_DB_PATH}/eukcc" >&2
+    exit 1
+fi
+
+if [ ! -d "${ACR_DB_PATH}/gtdbtk86" ]; then
+    echo "ERROR: Missing ACR DB directory: ${ACR_DB_PATH}/gtdbtk86" >&2
+    exit 1
+fi
+
+rm -rf /tmp/acr_db
+ln -s "${ACR_DB_PATH}" /tmp/acr_db
+
+cd "${ACR_HOME}"
+exec /opt/conda/envs/acr_env/bin/python "${ACR_HOME}/acr.py" "$@"
+EOF
+    chmod +x /usr/local/bin/acr
+
+    if [ -x /opt/conda/envs/euk_modern/bin/dRep ]; then
+        cat > /usr/local/bin/dRep <<'EOF'
+#!/usr/bin/env bash
+exec /opt/conda/envs/euk_modern/bin/dRep "$@"
+EOF
+        chmod +x /usr/local/bin/dRep
+    fi
+
+    if [ -x /opt/conda/envs/acr_env/bin/EukRep ]; then
+        cat > /usr/local/bin/EukRep <<'EOF'
+#!/usr/bin/env bash
+export LD_LIBRARY_PATH="/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:${LD_LIBRARY_PATH:-}"
+exec /opt/conda/envs/acr_env/bin/EukRep "$@"
+EOF
+        chmod +x /usr/local/bin/EukRep
+    fi
+
+    for tool in diamond prodigal hmmsearch hmmalign hmmpress pplacer; do
+        if [ -x "/opt/conda/envs/acr_env/bin/$tool" ]; then
+            cat > "/usr/local/bin/$tool" <<EOF
+#!/usr/bin/env bash
+export LD_LIBRARY_PATH="/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:\${LD_LIBRARY_PATH:-}"
+exec /opt/conda/envs/acr_env/bin/$tool "\$@"
+EOF
+            chmod +x "/usr/local/bin/$tool"
+        fi
+    done
+
+    for tool in minimap2 bwa samtools CAT_pack; do
+        if [ -x "/opt/conda/envs/euk_modern/bin/$tool" ]; then
+            cat > "/usr/local/bin/$tool" <<EOF
+#!/usr/bin/env bash
+export LD_LIBRARY_PATH="/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:\${LD_LIBRARY_PATH:-}"
+exec /opt/conda/envs/euk_modern/bin/$tool "\$@"
+EOF
+            chmod +x "/usr/local/bin/$tool"
+        fi
+    done
+
+    test -x /usr/local/bin/acr
+    test -x /usr/local/bin/runGMES
+    test -x /usr/local/bin/EukRep
+    test -x /usr/local/bin/prodigal
+    test -x /usr/local/bin/hmmsearch
+    test -x /usr/local/bin/pplacer
+    test -L /opt/ACR/data
+
+    conda clean -afy || true
+    rm -rf /root/.cache || true
+    rm -rf /var/tmp/conda_pkgs || true
+    rm -rf /var/tmp/apptainer_build_tmp || true
+    rm -f /var/tmp/miniforge.sh || true
+
+%runscript
+    export MPLCONFIGDIR=/var/tmp/matplotlib
+    export ACR_HOME=/opt/ACR
+    export PATH=/usr/local/bin:/opt/conda/envs/acr_env/bin:/opt/conda/envs/euk_modern/bin:/opt/conda/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:${LD_LIBRARY_PATH:-}
+    exec "$@"
+
+%test
+    export MPLCONFIGDIR=/var/tmp/matplotlib
+    export ACR_HOME=/opt/ACR
+    export PATH=/usr/local/bin:/opt/conda/envs/acr_env/bin:/opt/conda/envs/euk_modern/bin:/opt/conda/bin:$PATH
+    export LD_LIBRARY_PATH=/opt/conda/envs/acr_env/lib:/opt/conda/envs/euk_modern/lib:${LD_LIBRARY_PATH:-}
+
+    command -v acr >/dev/null
+    command -v runGMES >/dev/null
+    command -v EukRep >/dev/null
+    command -v prodigal >/dev/null
+    command -v hmmsearch >/dev/null
+    command -v pplacer >/dev/null
+
+    test -f /opt/ACR/acr.py
+    test -L /opt/ACR/data
+
+    /opt/conda/envs/acr_env/bin/python -c "import Bio, ete3, pandas, numpy, scipy, yaml; print('acr env ok')"
+    /usr/local/bin/runGMES >/dev/null 2>&1 || exit 1
