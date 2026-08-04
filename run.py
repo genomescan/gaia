@@ -1,0 +1,437 @@
+#!/usr/bin/env python3
+"""
+run.py - Gaia long-read metagenomics pipeline wrapper.
+
+Renders Jinja2 config and cluster templates, then invokes Snakemake.
+
+Usage:
+    python run.py [OPTIONS] [SNAKEMAKE_ARGS...]
+
+Examples:
+    # Dry-run with default config
+    python run.py --dry-run
+
+    # Specify samples and host FASTA
+    python run.py --samples sample1,sample2 --host-ref /data/host/hg38.fa
+
+    # Run with Slurm cluster profile
+    python run.py --slurm --cores 256 --samples sample1
+
+    # Pass extra snakemake arguments
+    python run.py --samples sample1 -- --forceall
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    from jinja2 import Environment, FileSystemLoader, StrictUndefined
+except ImportError:
+    sys.exit(
+        "ERROR: jinja2 is required. Install it with:  pip install jinja2"
+    )
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parent
+TEMPLATES_DIR = REPO_ROOT / "templates"
+CONFIG_TEMPLATE = "config.yaml.j2"
+CLUSTER_TEMPLATE = "cluster.json.j2"
+
+
+# ---------------------------------------------------------------------------
+# Defaults (match existing config.yaml values)
+# ---------------------------------------------------------------------------
+DEFAULTS = {
+    # Run mode
+    "run_mode": "both",
+    "serial_profile_then_assembly": True,
+    # Preprocessing
+    "preprocessing_enabled": False,
+    # Samples
+    "samples": ["zymod6300"],
+    # Paths
+    "raw_dir": "data/raw",
+    "host_ref": "data/host/host.fa",
+    "lambda_ref": "",
+    # Threads
+    "threads": {
+        "host_removal": 16,
+        "chopper": 8,
+        "filtlong": 8,
+        "nanoplot": 4,
+        "nanoqc": 4,
+        "kraken2": 32,
+        "centrifuger": 32,
+        "centrifuger_quant": 8,
+        "metaflye": 32,
+        "minimap2": 24,
+        "samtools": 8,
+        "depth": 8,
+        "metabat2": 32,
+        "semibin2": 32,
+        "comebin": 32,
+        "dastool": 24,
+        "checkm2": 24,
+        "gtdbtk": 32,
+        "acr": 16,
+        "drep": 16,
+        "eukcc": 16,
+        "bat": 32,
+    },
+    # Chopper
+    "chopper": {"min_length": 500, "quality_threshold": 10},
+    # Filtlong
+    "filtlong": {"min_length": 500, "keep_percent": 90},
+    # Taxonomy
+    "taxonomy_tools": ["kraken2", "centrifuger"],
+    "kraken2_db": "databases/kraken2/",
+    "centrifuger_db": "databases/centrifuger/cfr_core_nt",
+    "kraken2_extra": "--use-names",
+    "centrifuger_extra": "",
+    "centrifuger_quant_extra": "",
+    # Assembly
+    "assembly_executable": "flye",
+    "assembly_read_type": "--nano-raw",
+    "assembly_extra": "",
+    # Assembly QC
+    "assembly_qc_metaquast": False,
+    "assembly_qc_metaquast_references": "",
+    "assembly_qc_extra": "--min-contig 1000 --fragmented",
+    # Mapping
+    "mapping_enabled": True,
+    "mapping_preset": "map-ont",
+    "mapping_extra": "",
+    "mapping_depth_extra": "",
+    # Binning
+    "binning_enabled": True,
+    "binning_tools": ["metabat2", "semibin2", "comebin"],
+    "semibin2_extra": "--compression none",
+    "comebin_executable": "run_comebin.sh",
+    "comebin_views": 6,
+    "comebin_extra": "-b 128",
+    "metabat2_extra": "--minCV 0 --minCVSum 0",
+    # Prok refinement
+    "prok_dastool": True,
+    "prok_checkm2": True,
+    "prok_gtdbtk": True,
+    "dastool_search_engine": "diamond",
+    "dastool_score_threshold": 0.5,
+    "dastool_write_bin_evals": True,
+    "dastool_write_unbinned": False,
+    "dastool_db_directory": "/opt/DAS_Tool/db",
+    "dastool_extra": "",
+    "checkm2_db_path": "databases/checkm2/uniref100.KO.1.dmnd",
+    "checkm2_extension": "fa",
+    "checkm2_extra": "--force",
+    "gtdbtk_db_path": "databases/gtdbtk/",
+    "gtdbtk_mash_db": "",
+    "gtdbtk_extra": "",
+    # Euk refinement
+    "euk_acr": True,
+    "euk_drep": True,
+    "euk_eukcc": True,
+    "euk_bat": True,
+    "acr_db_path": "databases/acr/data",
+    "acr_target": "Both",
+    "acr_from_jgi_cov": "Y",
+    "acr_run_gmesEuk": "N",
+    "acr_comp": 50,
+    "acr_extra": "",
+    "drep_extra": "",
+    "eukcc_db_path": "databases/eukcc/",
+    "eukcc_extra": "",
+    "bat_executable": "CAT_pack",
+    "bat_db_path": "databases/bat/db/",
+    "bat_taxonomy_path": "databases/bat/tax/",
+    "bat_bin_suffix": ".fa",
+    "bat_extra": "",
+    # Containers
+    "containers": {
+        "preprocessing_qc": "containers/sif/preprocessing_qc.sif",
+        "taxonomy": "containers/sif/taxonomy.sif",
+        "assembly": "containers/sif/assembly.sif",
+        "metabat2": "containers/sif/metabat2.sif",
+        "semibin2": "containers/sif/semibin2.sif",
+        "comebin": "containers/sif/comebin.sif",
+        "prok": "containers/sif/prok.sif",
+        "euk": "containers/sif/euk.sif",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="run.py",
+        description="Gaia metagenomics pipeline wrapper.",
+        epilog=(
+            "Any arguments after '--' are forwarded directly to Snakemake.\n"
+            "Example: python run.py --samples s1 -- --forceall --rerun-incomplete"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Input / output
+    io_group = parser.add_argument_group("input / output")
+    io_group.add_argument(
+        "--samples",
+        metavar="SAMPLE[,SAMPLE...]",
+        help="Comma-separated list of sample names (default: %(default)s).",
+        default=",".join(DEFAULTS["samples"]),
+    )
+    io_group.add_argument(
+        "--raw-dir",
+        metavar="DIR",
+        default=DEFAULTS["raw_dir"],
+        help="Directory containing raw FASTQ files (default: %(default)s).",
+    )
+    io_group.add_argument(
+        "--host-ref",
+        metavar="FASTA",
+        default=DEFAULTS["host_ref"],
+        help=(
+            "Host reference FASTA for read removal when --preprocessing is enabled "
+            "(default: %(default)s)."
+        ),
+    )
+    io_group.add_argument(
+        "--output-dir",
+        metavar="DIR",
+        default="output/run",
+        help=(
+            "Directory where generated config/cluster files are written "
+            "(default: %(default)s)."
+        ),
+    )
+
+    # Pipeline mode
+    mode_group = parser.add_argument_group("pipeline mode")
+    mode_group.add_argument(
+        "--run-mode",
+        choices=["both", "profiling_only", "assembly_binning_only"],
+        default=DEFAULTS["run_mode"],
+        help="Workflow mode to execute (default: %(default)s).",
+    )
+    mode_group.add_argument(
+        "--preprocessing",
+        action="store_true",
+        default=DEFAULTS["preprocessing_enabled"],
+        help="Enable read preprocessing (host removal, filtering, QC).",
+    )
+    mode_group.add_argument(
+        "--no-serial",
+        action="store_true",
+        default=False,
+        help=(
+            "Run profiling and assembly branches in parallel "
+            "(default: serial, profiling before assembly)."
+        ),
+    )
+
+    # Execution
+    exec_group = parser.add_argument_group("execution")
+    exec_group.add_argument(
+        "--cores",
+        metavar="N",
+        type=int,
+        default=1,
+        help="Total CPU cores available to Snakemake (default: %(default)s).",
+    )
+    exec_group.add_argument(
+        "--slurm",
+        action="store_true",
+        default=False,
+        help="Submit jobs via Slurm using the rendered cluster.json.",
+    )
+    exec_group.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Perform a Snakemake dry-run (-n) without executing any jobs.",
+    )
+    exec_group.add_argument(
+        "--use-singularity",
+        action="store_true",
+        default=True,
+        help="Pass --use-singularity to Snakemake (default: enabled).",
+    )
+    exec_group.add_argument(
+        "--no-singularity",
+        action="store_true",
+        default=False,
+        help="Disable Singularity (overrides --use-singularity).",
+    )
+    exec_group.add_argument(
+        "--snakefile",
+        metavar="FILE",
+        default=str(REPO_ROOT / "Snakefile"),
+        help="Path to the Snakefile (default: %(default)s).",
+    )
+
+    # Templates
+    tmpl_group = parser.add_argument_group("templates")
+    tmpl_group.add_argument(
+        "--config-template",
+        metavar="FILE",
+        default=str(TEMPLATES_DIR / CONFIG_TEMPLATE),
+        help="Jinja2 config template (default: %(default)s).",
+    )
+    tmpl_group.add_argument(
+        "--cluster-template",
+        metavar="FILE",
+        default=str(TEMPLATES_DIR / CLUSTER_TEMPLATE),
+        help="Jinja2 cluster JSON template (default: %(default)s).",
+    )
+
+    # Extra snakemake args
+    parser.add_argument(
+        "snakemake_args",
+        nargs=argparse.REMAINDER,
+        metavar="SNAKEMAKE_ARGS",
+        help="Extra arguments forwarded to Snakemake (use '--' to separate).",
+    )
+
+    return parser.parse_args(argv)
+
+
+# ---------------------------------------------------------------------------
+# Template rendering
+# ---------------------------------------------------------------------------
+def render_template(template_path: Path, context: dict) -> str:
+    env = Environment(
+        loader=FileSystemLoader(str(template_path.parent)),
+        undefined=StrictUndefined,
+        keep_trailing_newline=True,
+    )
+    # Register tojson filter (Jinja2 built-in via jinja2.utils is not auto-loaded)
+    import json as _json
+    env.filters["tojson"] = lambda v: _json.dumps(v)
+    template = env.get_template(template_path.name)
+    return template.render(**context)
+
+
+def write_file(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+    print(f"  Written: {path}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main(argv=None):
+    args = parse_args(argv)
+
+    # Strip leading '--' separator from remainder args
+    extra_args = args.snakemake_args
+    if extra_args and extra_args[0] == "--":
+        extra_args = extra_args[1:]
+
+    # Resolve output directory
+    output_dir = Path(args.output_dir).resolve()
+
+    # Validate templates exist
+    config_tmpl = Path(args.config_template)
+    cluster_tmpl = Path(args.cluster_template)
+    for tmpl in (config_tmpl, cluster_tmpl):
+        if not tmpl.is_file():
+            sys.exit(f"ERROR: Template not found: {tmpl}")
+
+    # Validate host reference when preprocessing is enabled
+    if args.preprocessing and args.host_ref:
+        host_ref_path = Path(args.host_ref)
+        if not host_ref_path.exists():
+            print(
+                f"WARNING: Host reference FASTA not found: {host_ref_path}",
+                file=sys.stderr,
+            )
+
+    # Build template context
+    samples = [s.strip() for s in args.samples.split(",") if s.strip()]
+    if not samples:
+        sys.exit("ERROR: At least one sample name must be provided via --samples.")
+
+    log_dir = str(output_dir / "logs")
+    threads = DEFAULTS["threads"]
+
+    context = {
+        **DEFAULTS,
+        "run_mode": args.run_mode,
+        "serial_profile_then_assembly": not args.no_serial,
+        "preprocessing_enabled": args.preprocessing,
+        "samples": samples,
+        "raw_dir": args.raw_dir,
+        "host_ref": args.host_ref,
+        "log_dir": log_dir,
+        "threads": threads,
+    }
+
+    # Render templates
+    print("Rendering templates...")
+    config_out = output_dir / "config.yaml"
+    cluster_out = output_dir / "cluster.json"
+
+    try:
+        config_content = render_template(config_tmpl, context)
+        cluster_content = render_template(cluster_tmpl, context)
+    except Exception as exc:
+        sys.exit(f"ERROR: Template rendering failed: {exc}")
+
+    write_file(config_out, config_content)
+    write_file(cluster_out, cluster_content)
+
+    # Create logs directory
+    (output_dir / "logs").mkdir(parents=True, exist_ok=True)
+
+    # Build Snakemake command
+    use_singularity = args.use_singularity and not args.no_singularity
+    snakemake_cmd = [
+        "snakemake",
+        "--snakefile", args.snakefile,
+        "--configfile", str(config_out),
+        "--cores", str(args.cores),
+        "-p",
+    ]
+
+    if use_singularity:
+        snakemake_cmd.append("--use-singularity")
+
+    if args.dry_run:
+        snakemake_cmd.append("-n")
+
+    if args.slurm:
+        snakemake_cmd += [
+            "--cluster", f"sbatch --parsable --clusters={{cluster}} "
+                         f"--job-name={{rule}} "
+                         f"--output={log_dir}/slurm-%j.out "
+                         f"--error={log_dir}/slurm-%j.err "
+                         f"--cpus-per-task={{cluster.cpus-per-task}} "
+                         f"--mem={{cluster.mem}} "
+                         f"--time={{cluster.time}}",
+            "--cluster-config", str(cluster_out),
+            "--jobs", str(args.cores),
+        ]
+
+    snakemake_cmd += extra_args
+    snakemake_cmd.append("all")
+
+    print(f"\nRunning: {' '.join(snakemake_cmd)}\n")
+
+    try:
+        result = subprocess.run(snakemake_cmd, cwd=str(REPO_ROOT))
+        sys.exit(result.returncode)
+    except FileNotFoundError:
+        sys.exit(
+            "ERROR: 'snakemake' not found. Ensure Snakemake is installed and on PATH."
+        )
+
+
+if __name__ == "__main__":
+    main()
