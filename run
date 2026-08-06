@@ -1,121 +1,72 @@
 #!/usr/bin/env python3
-"""
-run - Gaia long-read metagenomics pipeline wrapper.
-
-Renders Jinja2 config and cluster templates, then invokes Snakemake.
-
-Usage:
-    python run [OPTIONS] [SNAKEMAKE_ARGS...]
-
-Examples:
-    # Dry-run with default config
-    python run --dry-run
-
-    # Specify samples and host FASTA
-    python run --samples sample1,sample2 --host-ref /data/host/hg38.fa
-
-    # Run with Slurm cluster profile
-    python run --slurm --cores 256 --samples sample1
-
-    # Pass extra snakemake arguments
-    python run --samples sample1 -- --forceall
-"""
+# (C) GenomeScan B.V. - Leiden 2024-2026
 
 import argparse
+import glob
+import json
 import os
+import random
+import re
+import shutil
+import string
 import subprocess
 import sys
-from pathlib import Path
+from datetime import datetime
 
-try:
-    from jinja2 import Environment, FileSystemLoader, StrictUndefined
-except ImportError:
-    sys.exit(
-        "ERROR: jinja2 is required. Install it with:  pip install jinja2"
-    )
+from jinja2 import Environment, FileSystemLoader
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-REPO_ROOT = Path(__file__).resolve().parent
-TEMPLATES_DIR = REPO_ROOT / "templates"
-CONFIG_TEMPLATE = "config_yml_template.j2"
-CLUSTER_TEMPLATE = "cluster_json_template.j2"
+WORKFLOW = "Gaia"
+VERSION = "1.0.0"
 
+THREAD_KEYS = [
+    "host_removal",
+    "chopper",
+    "filtlong",
+    "nanoplot",
+    "nanoqc",
+    "kraken2",
+    "centrifuger",
+    "centrifuger_quant",
+    "metaflye",
+    "minimap2",
+    "samtools",
+    "depth",
+    "metabat2",
+    "semibin2",
+    "comebin",
+    "dastool",
+    "checkm2",
+    "gtdbtk",
+    "acr",
+    "drep",
+    "eukcc",
+    "bat",
+]
 
-# ---------------------------------------------------------------------------
-# Defaults (match existing config.yaml values)
-# ---------------------------------------------------------------------------
 DEFAULTS = {
-    # Run mode
-    "run_mode": "both",
-    "serial_profile_then_assembly": True,
-    # Preprocessing
     "preprocessing_enabled": False,
-    # Samples
-    "samples": ["zymod6300"],
-    # Paths
-    "raw_dir": "data/raw",
-    "host_ref": "data/host/host.fa",
     "lambda_ref": "",
-    # Threads
-    "threads": {
-        "host_removal": 16,
-        "chopper": 8,
-        "filtlong": 8,
-        "nanoplot": 4,
-        "nanoqc": 4,
-        "kraken2": 32,
-        "centrifuger": 32,
-        "centrifuger_quant": 8,
-        "metaflye": 32,
-        "minimap2": 24,
-        "samtools": 8,
-        "depth": 8,
-        "metabat2": 32,
-        "semibin2": 32,
-        "comebin": 32,
-        "dastool": 24,
-        "checkm2": 24,
-        "gtdbtk": 32,
-        "acr": 16,
-        "drep": 16,
-        "eukcc": 16,
-        "bat": 32,
-    },
-    # Chopper
     "chopper": {"min_length": 500, "quality_threshold": 10},
-    # Filtlong
     "filtlong": {"min_length": 500, "keep_percent": 90},
-    # Taxonomy
-    "taxonomy_tools": ["kraken2", "centrifuger"],
-    "kraken2_db": "databases/kraken2/",
-    "centrifuger_db": "databases/centrifuger/cfr_core_nt",
     "kraken2_extra": "--use-names",
     "centrifuger_extra": "",
     "centrifuger_quant_extra": "",
-    # Assembly
     "assembly_executable": "flye",
     "assembly_read_type": "--nano-raw",
     "assembly_extra": "",
-    # Assembly QC
     "assembly_qc_metaquast": False,
     "assembly_qc_metaquast_references": "",
     "assembly_qc_extra": "--min-contig 1000 --fragmented",
-    # Mapping
     "mapping_enabled": True,
     "mapping_preset": "map-ont",
     "mapping_extra": "",
     "mapping_depth_extra": "",
-    # Binning
     "binning_enabled": True,
-    "binning_tools": ["metabat2", "semibin2", "comebin"],
     "semibin2_extra": "--compression none",
     "comebin_executable": "run_comebin.sh",
     "comebin_views": 6,
     "comebin_extra": "-b 128",
     "metabat2_extra": "--minCV 0 --minCVSum 0",
-    # Prok refinement
     "prok_dastool": True,
     "prok_checkm2": True,
     "prok_gtdbtk": True,
@@ -131,7 +82,6 @@ DEFAULTS = {
     "gtdbtk_db_path": "databases/gtdbtk/",
     "gtdbtk_mash_db": "",
     "gtdbtk_extra": "",
-    # Euk refinement
     "euk_acr": True,
     "euk_drep": True,
     "euk_eukcc": True,
@@ -150,7 +100,6 @@ DEFAULTS = {
     "bat_taxonomy_path": "databases/bat/tax/",
     "bat_bin_suffix": ".fa",
     "bat_extra": "",
-    # Containers
     "containers": {
         "preprocessing_qc": "containers/sif/preprocessing_qc.sif",
         "taxonomy": "containers/sif/taxonomy.sif",
@@ -164,274 +113,316 @@ DEFAULTS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Argument parsing
-# ---------------------------------------------------------------------------
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        prog="run",
-        description="Gaia metagenomics pipeline wrapper.",
-        epilog=(
-            "Any arguments after '--' are forwarded directly to Snakemake.\n"
-            "Example: python run.py --samples s1 -- --forceall --rerun-incomplete"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+def get_config_options(run_script_dir):
+    config_options = []
+    for config in glob.glob(os.path.join(run_script_dir, "configs", "*")):
+        base = os.path.basename(config)
+        if base.endswith((".obs", ".obsolete", ".old", "_old", ".md")):
+            continue
+        if os.path.isfile(config):
+            config_options.append(base)
+    return sorted(config_options)
 
-    # Input / output
-    io_group = parser.add_argument_group("input / output")
-    io_group.add_argument(
-        "--samples",
-        metavar="SAMPLE[,SAMPLE...]",
-        help="Comma-separated list of sample names (default: %(default)s).",
-        default=",".join(DEFAULTS["samples"]),
-    )
-    io_group.add_argument(
-        "--raw-dir",
-        metavar="DIR",
-        default=DEFAULTS["raw_dir"],
-        help="Directory containing raw FASTQ files (default: %(default)s).",
-    )
-    io_group.add_argument(
-        "--host-ref",
-        metavar="FASTA",
-        default=DEFAULTS["host_ref"],
-        help=(
-            "Host reference FASTA for read removal when --preprocessing is enabled "
-            "(default: %(default)s)."
-        ),
-    )
-    io_group.add_argument(
-        "--output-dir",
-        metavar="DIR",
-        default="output/run",
-        help=(
-            "Directory where generated config/cluster files are written "
-            "(default: %(default)s)."
-        ),
-    )
 
-    # Pipeline mode
-    mode_group = parser.add_argument_group("pipeline mode")
-    mode_group.add_argument(
-        "--run-mode",
-        choices=["both", "profiling_only", "assembly_binning_only"],
-        default=DEFAULTS["run_mode"],
-        help="Workflow mode to execute (default: %(default)s).",
-    )
-    mode_group.add_argument(
-        "--preprocessing",
-        action="store_true",
-        default=DEFAULTS["preprocessing_enabled"],
-        help="Enable read preprocessing (host removal, filtering, QC).",
-    )
-    mode_group.add_argument(
-        "--no-serial",
-        action="store_true",
-        default=False,
-        help=(
-            "Run profiling and assembly branches in parallel "
-            "(default: serial, profiling before assembly)."
-        ),
-    )
+def parse_args():
+    run_script_dir = os.path.dirname(os.path.realpath(__file__))
+    config_options = get_config_options(run_script_dir)
 
-    # Execution
-    exec_group = parser.add_argument_group("execution")
-    exec_group.add_argument(
-        "--cores",
-        metavar="N",
-        type=int,
-        default=1,
-        help="Total CPU cores available to Snakemake (default: %(default)s).",
-    )
-    exec_group.add_argument(
-        "--slurm",
-        action="store_true",
-        default=False,
-        help="Submit jobs via Slurm using the rendered cluster.json.",
-    )
-    exec_group.add_argument(
-        "--dry-run",
-        action="store_true",
-        default=False,
-        help="Perform a Snakemake dry-run (-n) without executing any jobs.",
-    )
-    exec_group.add_argument(
-        "--use-singularity",
-        action="store_true",
-        default=True,
-        help="Pass --use-singularity to Snakemake (default: enabled).",
-    )
-    exec_group.add_argument(
-        "--no-singularity",
-        action="store_true",
-        default=False,
-        help="Disable Singularity (overrides --use-singularity).",
-    )
-    exec_group.add_argument(
-        "--snakefile",
-        metavar="FILE",
-        default=str(REPO_ROOT / "Snakefile"),
-        help="Path to the Snakefile (default: %(default)s).",
-    )
-
-    # Templates
-    tmpl_group = parser.add_argument_group("templates")
-    tmpl_group.add_argument(
-        "--config-template",
-        metavar="FILE",
-        default=str(TEMPLATES_DIR / CONFIG_TEMPLATE),
-        help="Jinja2 config template (default: %(default)s).",
-    )
-    tmpl_group.add_argument(
-        "--cluster-template",
-        metavar="FILE",
-        default=str(TEMPLATES_DIR / CLUSTER_TEMPLATE),
-        help="Jinja2 cluster JSON template (default: %(default)s).",
-    )
-
-    # Extra snakemake args
+    parser = argparse.ArgumentParser(description=f"{WORKFLOW} pipeline")
+    parser.add_argument("-v", "--version", action="version", version=f"{WORKFLOW} {VERSION}")
+    parser.add_argument("-i", "--input", help="Path to directory containing raw FASTQ files")
     parser.add_argument(
-        "snakemake_args",
-        nargs=argparse.REMAINDER,
-        metavar="SNAKEMAKE_ARGS",
-        help="Extra arguments forwarded to Snakemake (use '--' to separate).",
+        "-c",
+        "--config",
+        default="both",
+        choices=config_options,
+        help=f"Pipeline config in configs/ (default: %(default)s). Available: {', '.join(config_options)}",
     )
-
-    return parser.parse_args(argv)
-
-
-# ---------------------------------------------------------------------------
-# Template rendering
-# ---------------------------------------------------------------------------
-def render_template(template_path: Path, context: dict) -> str:
-    env = Environment(
-        loader=FileSystemLoader(str(template_path.parent)),
-        undefined=StrictUndefined,
-        keep_trailing_newline=True,
+    parser.add_argument(
+        "-s",
+        "--samples",
+        default=None,
+        help="Comma-separated sample names (default: derived from --input directory)",
     )
-    # Register tojson filter (Jinja2 built-in via jinja2.utils is not auto-loaded)
-    import json as _json
-    env.filters["tojson"] = lambda v: _json.dumps(v)
-    template = env.get_template(template_path.name)
-    return template.render(**context)
+    parser.add_argument("--host-ref", default="", help="Host reference FASTA (for preprocessing)")
+    parser.add_argument("--preprocessing", action="store_true", help="Enable preprocessing")
+    parser.add_argument("-t", "--threads", type=int, default=8, help="Number of threads per tool")
+    parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel jobs")
+    parser.add_argument("-d", "--dryrun", action="store_true", help="Dry run")
+    parser.add_argument("-u", "--unlock", action="store_true", help="Unlock working directory")
+    parser.add_argument("--until", default=None, help="Run until a specific rule")
+    parser.add_argument("-k", "--keep-going", action="store_true", help="Keep going on errors")
+    parser.add_argument("-g", "--grid", choices=["local", "slurm"], default="local")
+    parser.add_argument(
+        "-n",
+        "--restart",
+        action="store_true",
+        help="Do not copy/render files, just re-run Snakemake",
+    )
+    return parser.parse_args()
 
 
-def write_file(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
-    print(f"  Written: {path}")
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-def main(argv=None):
-    args = parse_args(argv)
+def generate_job_id():
+    chars = string.ascii_letters + string.digits
+    return "".join(random.choice(chars) for _ in range(10))
 
-    # Strip leading '--' separator from remainder args
-    extra_args = args.snakemake_args
-    if extra_args and extra_args[0] == "--":
-        extra_args = extra_args[1:]
 
-    # Resolve output directory
-    output_dir = Path(args.output_dir).resolve()
+def derive_samples(input_dir):
+    if not os.path.isdir(input_dir):
+        return []
 
-    # Validate templates exist
-    config_tmpl = Path(args.config_template)
-    cluster_tmpl = Path(args.cluster_template)
-    for tmpl in (config_tmpl, cluster_tmpl):
-        if not tmpl.is_file():
-            sys.exit(f"ERROR: Template not found: {tmpl}")
+    sample_names = set()
+    for filename in sorted(os.listdir(input_dir)):
+        if not filename.endswith((".fastq", ".fastq.gz", ".fq", ".fq.gz")):
+            continue
 
-    # Validate host reference when preprocessing is enabled
-    if args.preprocessing and args.host_ref:
-        host_ref_path = Path(args.host_ref)
-        if not host_ref_path.exists():
-            print(
-                f"WARNING: Host reference FASTA not found: {host_ref_path}",
-                file=sys.stderr,
-            )
+        sample = filename
+        for extension in [".fastq.gz", ".fq.gz", ".fastq", ".fq"]:
+            if sample.endswith(extension):
+                sample = sample[: -len(extension)]
+                break
 
-    # Build template context
-    samples = [s.strip() for s in args.samples.split(",") if s.strip()]
-    if not samples:
-        sys.exit("ERROR: At least one sample name must be provided via --samples.")
+        sample = re.sub(r"([._-]R?[12])$", "", sample)
+        if sample:
+            sample_names.add(sample)
 
-    log_dir = str(output_dir / "logs")
-    threads = DEFAULTS["threads"]
+    return sorted(sample_names)
 
-    context = {
-        **DEFAULTS,
-        "run_mode": args.run_mode,
-        "serial_profile_then_assembly": not args.no_serial,
-        "preprocessing_enabled": args.preprocessing,
-        "samples": samples,
-        "raw_dir": args.raw_dir,
-        "host_ref": args.host_ref,
-        "log_dir": log_dir,
-        "threads": threads,
+
+def build_threads(threads_per_tool):
+    return {key: threads_per_tool for key in THREAD_KEYS}
+
+
+def resolve_path_tokens(rendered_text, run_script_dir):
+    resolved_lines = []
+    for line in rendered_text.splitlines():
+        if ":" in line:
+            prefix, value = line.split(":", 1)
+            stripped_value = value.strip().strip('"').strip("'")
+            if stripped_value.startswith("PATH_"):
+                relative = stripped_value.replace("PATH_", "", 1).lstrip("/")
+                absolute = os.path.abspath(os.path.join(run_script_dir, relative))
+                line = f'{prefix}: "{absolute}"'
+        resolved_lines.append(line)
+    return "\n".join(resolved_lines) + "\n"
+
+
+def inline_include_statements(snakefile_path, run_script_dir, included=None):
+    if included is None:
+        included = set()
+
+    snakefile_path = os.path.abspath(snakefile_path)
+    if snakefile_path in included:
+        return ""
+    included.add(snakefile_path)
+
+    lines = []
+    include_regex = re.compile(r'^\s*include:\s*["\']([^"\']+)["\']\s*$')
+    with open(snakefile_path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            match = include_regex.match(line)
+            if match:
+                include_path = os.path.join(run_script_dir, match.group(1))
+                if not os.path.isfile(include_path):
+                    sys.exit(f"[{WORKFLOW}] Error: Included file not found: {include_path}")
+                lines.append(f"\n# Begin include: {match.group(1)}\n")
+                lines.append(inline_include_statements(include_path, run_script_dir, included))
+                lines.append(f"# End include: {match.group(1)}\n")
+            else:
+                if re.match(r'^\s*configfile:\s*["\']config\.ya?ml["\']\s*$', line):
+                    lines.append('configfile: "config.yml"\n')
+                else:
+                    lines.append(line)
+    return "".join(lines)
+
+
+def yaml_inline_value(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(json.dumps(item) for item in value) + "]"
+    if value is None:
+        return "null"
+    return json.dumps(value)
+
+
+def append_pipeline_config_block(config_file, config_2):
+    with open(config_file, "a", encoding="utf-8") as handle:
+        handle.write("\n# pipeline config\n")
+        for key, value in config_2.items():
+            if key == "snakefile":
+                continue
+            handle.write(f"{key}: {yaml_inline_value(value)}\n")
+
+
+def write_required_files(run_script_dir, args, job_id):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    config = {
+        "version": VERSION,
+        "workflow": WORKFLOW,
+        "created": now,
+        "job_id": job_id,
+        "cmdpath": run_script_dir,
+        "containers": DEFAULTS["containers"].copy(),
+        "path_scripts": os.path.join(run_script_dir, "scripts"),
+        "output_dir": os.getcwd(),
     }
+    config.update(DEFAULTS)
+    config.update(vars(args))
 
-    # Render templates
-    print("Rendering templates...")
-    config_out = output_dir / "config.yaml"
-    cluster_out = output_dir / "cluster.json"
+    config["preprocessing_enabled"] = args.preprocessing
+    config["raw_dir"] = args.input
+    config["threads"] = build_threads(args.threads)
+    config["log_dir"] = os.path.join(os.getcwd(), "cluster-logs")
 
-    try:
-        config_content = render_template(config_tmpl, context)
-        cluster_content = render_template(cluster_tmpl, context)
-    except Exception as exc:
-        sys.exit(f"ERROR: Template rendering failed: {exc}")
+    if args.samples:
+        config["samples"] = [sample.strip() for sample in args.samples.split(",") if sample.strip()]
+    else:
+        config["samples"] = derive_samples(args.input)
 
-    write_file(config_out, config_content)
-    write_file(cluster_out, cluster_content)
+    if not config["samples"]:
+        sys.exit(
+            f"[{WORKFLOW}] Error: No samples found. Pass --samples or add FASTQ files in {args.input}."
+        )
 
-    # Create logs directory
-    (output_dir / "logs").mkdir(parents=True, exist_ok=True)
+    config_path = os.path.join(run_script_dir, "configs", args.config)
+    config_2 = load_json(config_path)
+    if "snakefile" not in config_2:
+        sys.exit(f"[{WORKFLOW}] Error: Config '{args.config}' must contain key 'snakefile'.")
 
-    # Build Snakemake command
-    use_singularity = args.use_singularity and not args.no_singularity
-    snakemake_cmd = [
+    config.update(config_2)
+
+    templates_dir = os.path.join(run_script_dir, "templates")
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    env.filters["tojson"] = lambda value: json.dumps(value)
+
+    config_template = env.get_template("config_yml_template.j2")
+    rendered_config = config_template.render(**config)
+    rendered_config = resolve_path_tokens(rendered_config, run_script_dir)
+
+    config_yml_path = os.path.join(os.getcwd(), "config.yml")
+    with open(config_yml_path, "w", encoding="utf-8") as handle:
+        handle.write(rendered_config)
+    append_pipeline_config_block(config_yml_path, config_2)
+    print(f"[{WORKFLOW}] Info: Written config.yml")
+
+    if args.grid != "local":
+        cluster_template = env.get_template("cluster_json_template.j2")
+        rendered_cluster = cluster_template.render(**config)
+        with open(os.path.join(os.getcwd(), "cluster.json"), "w", encoding="utf-8") as handle:
+            handle.write(rendered_cluster)
+        print(f"[{WORKFLOW}] Info: Written cluster.json")
+
+    snakefile_source = os.path.join(run_script_dir, config_2["snakefile"])
+    if not os.path.isfile(snakefile_source):
+        sys.exit(f"[{WORKFLOW}] Error: Snakefile not found: {snakefile_source}")
+
+    snakefile_target = os.path.join(os.getcwd(), "Snakefile")
+    shutil.copyfile(snakefile_source, snakefile_target)
+
+    snakefile_content = inline_include_statements(snakefile_target, run_script_dir)
+    snakefile_header = f"# Created {now} by {WORKFLOW}\n"
+    with open(snakefile_target, "w", encoding="utf-8") as handle:
+        handle.write(snakefile_header)
+        handle.write(snakefile_content)
+    print(f"[{WORKFLOW}] Info: Written Snakefile")
+
+
+def check_path_existance(args):
+    if not os.path.isdir(args.input):
+        sys.exit(f"[{WORKFLOW}] Error: Input directory does not exist: {args.input}")
+    if args.host_ref and not os.path.isfile(args.host_ref):
+        sys.exit(f"[{WORKFLOW}] Error: Host reference does not exist: {args.host_ref}")
+
+
+def run_pipeline(args):
+    job_id = generate_job_id()
+
+    if not args.restart:
+        write_required_files(os.path.dirname(os.path.realpath(__file__)), args, job_id)
+
+    if args.grid != "local":
+        os.makedirs("cluster-logs", exist_ok=True)
+
+    if args.unlock:
+        unlock_command = "snakemake -s Snakefile --unlock"
+        print(f"[{WORKFLOW}] Info: {unlock_command}")
+        subprocess.run(unlock_command, shell=True)
+        return
+
+    snakemake_command = [
         "snakemake",
-        "--snakefile", args.snakefile,
-        "--configfile", str(config_out),
-        "--cores", str(args.cores),
+        "-s",
+        "Snakefile",
         "-p",
+        "-r",
+        "--rerun-incomplete",
+        "--max-jobs-per-second",
+        "10",
+        "--restart-times",
+        "2",
+        "--use-singularity",
+        "--singularity-args",
+        '"--bind /mnt"',
     ]
 
-    if use_singularity:
-        snakemake_cmd.append("--use-singularity")
+    if args.grid == "local":
+        cores = args.jobs * args.threads
+    else:
+        cores = args.jobs if args.jobs != 1 else 200
+    snakemake_command.extend(["--cores", str(cores)])
 
-    if args.dry_run:
-        snakemake_cmd.append("-n")
+    if args.grid != "local":
+        snakemake_command.extend(["--latency-wait", "120", "--cluster-config", "cluster.json"])
 
-    if args.slurm:
-        snakemake_cmd += [
-            "--cluster", f"sbatch --parsable --clusters={{cluster}} "
-                         f"--job-name={{rule}} "
-                         f"--output={log_dir}/slurm-%j.out "
-                         f"--error={log_dir}/slurm-%j.err "
-                         f"--cpus-per-task={{cluster.cpus-per-task}} "
-                         f"--mem={{cluster.mem}} "
-                         f"--time={{cluster.time}}",
-            "--cluster-config", str(cluster_out),
-            "--jobs", str(args.cores),
-        ]
-
-    snakemake_cmd += extra_args
-    snakemake_cmd.append("all")
-
-    print(f"\nRunning: {' '.join(snakemake_cmd)}\n")
-
-    try:
-        result = subprocess.run(snakemake_cmd, cwd=str(REPO_ROOT))
-        sys.exit(result.returncode)
-    except FileNotFoundError:
-        sys.exit(
-            "ERROR: 'snakemake' not found. Ensure Snakemake is installed and on PATH."
+    if args.grid == "slurm":
+        cluster_cmd = (
+            "sbatch --parsable "
+            "--job-name={cluster.jobname} "
+            "--output={cluster.output} "
+            "--error={cluster.error} "
+            "--cpus-per-task={cluster.cpus-per-task} "
+            "--mem={cluster.mem} "
+            "--time={cluster.time}"
         )
+        snakemake_command.extend(["--cluster", cluster_cmd])
+
+    if args.keep_going:
+        snakemake_command.append("--keep-going")
+
+    if args.dryrun:
+        snakemake_command.append("--dry-run")
+
+    snakemake_command.extend(["--jobname", f"{{{{name}}}}.{job_id}.{{{{jobid}}}}"])
+
+    if args.until:
+        snakemake_command.extend(["--until", args.until])
+
+    command = " ".join(snakemake_command)
+    print(f"[{WORKFLOW}] Info: Running {command}")
+    result = subprocess.run(command, shell=True)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
+def main(args):
+    if not args.input:
+        sys.exit(f"[{WORKFLOW}] Error: Missing required argument -i/--input")
+
+    check_path_existance(args)
+    run_pipeline(args)
 
 
 if __name__ == "__main__":
-    main()
+    main(parse_args())

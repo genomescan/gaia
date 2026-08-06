@@ -1,0 +1,10 @@
+{
+    "snakefile": "Snakefile",
+    "description": "Run only the assembly and genome reconstruction branch",
+    "run_mode": "assembly_binning_only",
+    "serial_profile_then_assembly": false,
+    "taxonomy_tools": [],
+    "kraken2_db": "",
+    "centrifuger_db": "",
+    "binning_tools": ["metabat2", "semibin2", "comebin"]
+}
