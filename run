@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-run.py - Gaia long-read metagenomics pipeline wrapper.
+run - Gaia long-read metagenomics pipeline wrapper.
 
 Renders Jinja2 config and cluster templates, then invokes Snakemake.
 
 Usage:
-    python run.py [OPTIONS] [SNAKEMAKE_ARGS...]
+    python run [OPTIONS] [SNAKEMAKE_ARGS...]
 
 Examples:
     # Dry-run with default config
-    python run.py --dry-run
+    python run --dry-run
 
     # Specify samples and host FASTA
-    python run.py --samples sample1,sample2 --host-ref /data/host/hg38.fa
+    python run --samples sample1,sample2 --host-ref /data/host/hg38.fa
 
     # Run with Slurm cluster profile
-    python run.py --slurm --cores 256 --samples sample1
+    python run --slurm --cores 256 --samples sample1
 
     # Pass extra snakemake arguments
-    python run.py --samples sample1 -- --forceall
+    python run --samples sample1 -- --forceall
 """
 
 import argparse
@@ -39,8 +39,8 @@ except ImportError:
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent
 TEMPLATES_DIR = REPO_ROOT / "templates"
-CONFIG_TEMPLATE = "config.yaml.j2"
-CLUSTER_TEMPLATE = "cluster.json.j2"
+CONFIG_TEMPLATE = "config_yml_template.j2"
+CLUSTER_TEMPLATE = "cluster_json_template.j2"
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ DEFAULTS = {
 # ---------------------------------------------------------------------------
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        prog="run.py",
+        prog="run",
         description="Gaia metagenomics pipeline wrapper.",
         epilog=(
             "Any arguments after '--' are forwarded directly to Snakemake.\n"
