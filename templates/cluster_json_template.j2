@@ -1,0 +1,119 @@
+{
+  "__default__": {
+    "cpus-per-task": 1,
+    "mem": "4G",
+    "time": "24:00:00",
+    "output": "{{ log_dir }}/slurm-%j.out",
+    "error": "{{ log_dir }}/slurm-%j.err"
+  },
+  "host_removal": {
+    "cpus-per-task": {{ threads.host_removal }},
+    "mem": "32G",
+    "time": "04:00:00"
+  },
+  "chopper": {
+    "cpus-per-task": {{ threads.chopper }},
+    "mem": "8G",
+    "time": "02:00:00"
+  },
+  "filtlong": {
+    "cpus-per-task": {{ threads.filtlong }},
+    "mem": "8G",
+    "time": "02:00:00"
+  },
+  "nanoplot": {
+    "cpus-per-task": {{ threads.nanoplot }},
+    "mem": "8G",
+    "time": "02:00:00"
+  },
+  "nanoqc": {
+    "cpus-per-task": {{ threads.nanoqc }},
+    "mem": "4G",
+    "time": "01:00:00"
+  },
+  "kraken2": {
+    "cpus-per-task": {{ threads.kraken2 }},
+    "mem": "128G",
+    "time": "04:00:00"
+  },
+  "centrifuger": {
+    "cpus-per-task": {{ threads.centrifuger }},
+    "mem": "64G",
+    "time": "04:00:00"
+  },
+  "centrifuger_quant": {
+    "cpus-per-task": {{ threads.centrifuger_quant }},
+    "mem": "16G",
+    "time": "02:00:00"
+  },
+  "metaflye": {
+    "cpus-per-task": {{ threads.metaflye }},
+    "mem": "128G",
+    "time": "24:00:00"
+  },
+  "minimap2": {
+    "cpus-per-task": {{ threads.minimap2 }},
+    "mem": "32G",
+    "time": "04:00:00"
+  },
+  "samtools": {
+    "cpus-per-task": {{ threads.samtools }},
+    "mem": "16G",
+    "time": "02:00:00"
+  },
+  "depth": {
+    "cpus-per-task": {{ threads.depth }},
+    "mem": "16G",
+    "time": "02:00:00"
+  },
+  "metabat2": {
+    "cpus-per-task": {{ threads.metabat2 }},
+    "mem": "64G",
+    "time": "08:00:00"
+  },
+  "semibin2": {
+    "cpus-per-task": {{ threads.semibin2 }},
+    "mem": "64G",
+    "time": "08:00:00"
+  },
+  "comebin": {
+    "cpus-per-task": {{ threads.comebin }},
+    "mem": "64G",
+    "time": "08:00:00"
+  },
+  "dastool": {
+    "cpus-per-task": {{ threads.dastool }},
+    "mem": "32G",
+    "time": "08:00:00"
+  },
+  "checkm2": {
+    "cpus-per-task": {{ threads.checkm2 }},
+    "mem": "32G",
+    "time": "08:00:00"
+  },
+  "gtdbtk": {
+    "cpus-per-task": {{ threads.gtdbtk }},
+    "mem": "128G",
+    "time": "12:00:00"
+  },
+  "acr": {
+    "cpus-per-task": {{ threads.acr }},
+    "mem": "32G",
+    "time": "08:00:00"
+  },
+  "drep": {
+    "cpus-per-task": {{ threads.drep }},
+    "mem": "32G",
+    "time": "04:00:00"
+  },
+  "eukcc": {
+    "cpus-per-task": {{ threads.eukcc }},
+    "mem": "32G",
+    "time": "08:00:00"
+  },
+  "bat": {
+    "cpus-per-task": {{ threads.bat }},
+    "mem": "64G",
+    "time": "08:00:00"
+  }
+}

@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=lr_mag_pipeline
-#SBATCH --output=logs/lr_mag_pipeline_%j.out
-#SBATCH --error=logs/lr_mag_pipeline_%j.err
-#SBATCH --cpus-per-task=<CPUS>
-#SBATCH --mem=<RAM>
+# run.sh - thin shim that delegates to the Python wrapper run.
+#
+# Usage:  bash run.sh [OPTIONS]
+# Run    'python run --help'  for the full list of options.
+#
+# Example (Slurm):
+#   sbatch --cpus-per-task=64 --mem=256G run.sh --slurm --cores 64 --samples sample1
 
-mkdir -p logs
+set -euo pipefail
 
-snakemake \
-  --use-singularity \
-  --cores "${SLURM_CPUS_PER_TASK}" \
-  -p \
-  all
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+exec python3 "${SCRIPT_DIR}/run" "$@"
