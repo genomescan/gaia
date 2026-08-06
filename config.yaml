@@ -1,3 +1,5 @@
+# NOTE: This static example is not used by the `run` wrapper.
+# The wrapper generates `config.yml` in the working directory at runtime.
 # =============================================================================
 # Long-read metagenomics pipeline configuration
 # =============================================================================
