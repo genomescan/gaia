@@ -7,6 +7,7 @@ import json
 import os
 import random
 import re
+import shlex
 import shutil
 import string
 import subprocess
@@ -409,7 +410,7 @@ def run_pipeline(args):
     if args.until:
         snakemake_command.extend(["--until", args.until])
 
-    command = " ".join(snakemake_command)
+    command = shlex.join(snakemake_command)
     print(f"[{WORKFLOW}] Info: Running {command}")
     result = subprocess.run(command, shell=True)
     if result.returncode != 0:
