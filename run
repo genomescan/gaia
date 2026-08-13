@@ -7,7 +7,6 @@ import json
 import os
 import random
 import re
-import shlex
 import shutil
 import string
 import subprocess
@@ -102,14 +101,14 @@ DEFAULTS = {
     "bat_bin_suffix": ".fa",
     "bat_extra": "",
     "containers": {
-        "preprocessing_qc": "containers/sif/preprocessing_qc.sif",
-        "taxonomy": "containers/sif/taxonomy.sif",
-        "assembly": "containers/sif/assembly.sif",
-        "metabat2": "containers/sif/metabat2.sif",
-        "semibin2": "containers/sif/semibin2.sif",
-        "comebin": "containers/sif/comebin.sif",
-        "prok": "containers/sif/prok.sif",
-        "euk": "containers/sif/euk.sif",
+        "preprocessing_qc": "containers/preprocessing_qc.sif",
+        "taxonomy": "containers/taxonomy.sif",
+        "assembly": "containers/assembly.sif",
+        "metabat2": "containers/metabat2.sif",
+        "semibin2": "containers/semibin2.sif",
+        "comebin": "containers/comebin.sif",
+        "prok": "containers/prok.sif",
+        "euk": "containers/euk.sif",
     },
 }
 
@@ -271,7 +270,10 @@ def write_required_files(run_script_dir, args, job_id):
         "created": now,
         "job_id": job_id,
         "cmdpath": run_script_dir,
-        "containers": DEFAULTS["containers"].copy(),
+        "containers": {
+            key: os.path.join(run_script_dir, value)
+            for key, value in DEFAULTS["containers"].items()
+        },
         "path_scripts": os.path.join(run_script_dir, "scripts"),
         "output_dir": os.getcwd(),
     }
@@ -369,50 +371,48 @@ def run_pipeline(args):
         "-p",
         "-r",
         "--rerun-incomplete",
-        "--max-jobs-per-second",
-        "10",
-        "--restart-times",
-        "2",
-        "--use-singularity",
-        "--singularity-args",
-        '"--bind /mnt"',
     ]
+    snakemake_command.extend(["--max-jobs-per-second", "10", "--restart-times", "2"])
+    snakemake_command.extend(["--use-singularity", "--singularity-args", '"--bind /mnt"'])
 
     if args.grid == "local":
-        cores = args.jobs * args.threads
+        snakemake_command.extend(["--cores", str(args.jobs * args.threads)])
+    elif args.jobs == 1:
+        snakemake_command.extend(["--cores", "200"])
     else:
-        cores = args.jobs if args.jobs != 1 else 200
-    snakemake_command.extend(["--cores", str(cores)])
+        snakemake_command.extend(["--cores", str(args.jobs)])
 
     if args.grid != "local":
-        snakemake_command.extend(["--latency-wait", "120", "--cluster-config", "cluster.json"])
+        snakemake_command.extend(["--latency-wait", "120", "--cluster-config", f"{os.getcwd()}/cluster.json"])
 
     if args.grid == "slurm":
-        cluster_cmd = (
-            "sbatch --parsable "
-            "--job-name={cluster.jobname} "
-            "--output={cluster.output} "
-            "--error={cluster.error} "
-            "--cpus-per-task={cluster.cpus-per-task} "
-            "--mem={cluster.mem} "
-            "--time={cluster.time}"
-        )
-        snakemake_command.extend(["--cluster", cluster_cmd])
+        snakemake_command.extend([
+            "--cluster",
+            "\"sbatch",
+            "--parsable",
+            "--chdir=.",
+            "--job-name={cluster.jobname}",
+            "--output={cluster.output}",
+            "--error={cluster.error}",
+            "--cpus-per-task={cluster.cpus-per-task}",
+            "--mem={cluster.mem}",
+            "--time={cluster.time}",
+            "\"",
+        ])
+        snakemake_command.extend(["--jobs", "unlimited"])
 
     if args.keep_going:
-        snakemake_command.append("--keep-going")
+        snakemake_command.extend(["--keep-going"])
 
     if args.dryrun:
-        snakemake_command.append("--dry-run")
+        snakemake_command.extend(["--dry-run"])
 
-    snakemake_command.extend(["--jobname", f"{{{{name}}}}.{job_id}.{{{{jobid}}}}"])
+    snakemake_command.extend(["--jobname", f"\"{{name}}.{job_id}.{{jobid}}\""])
 
     if args.until:
         snakemake_command.extend(["--until", args.until])
 
-    snakemake_command.extend(["--jobs", "unlimited"])
-
-    command = shlex.join(snakemake_command)
+    command = " ".join(snakemake_command)
     print(f"[{WORKFLOW}] Info: Running {command}")
     result = subprocess.run(command, shell=True)
     if result.returncode != 0:

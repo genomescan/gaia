@@ -1,10 +1,11 @@
 {
   "__default__": {
+    "jobname": "{rule}",
     "cpus-per-task": 1,
     "mem": "4G",
-    "time": "24:00:00",
-    "output": "{{ log_dir }}/slurm-%j.out",
-    "error": "{{ log_dir }}/slurm-%j.err"
+    "time": "168:00:00",
+    "output": "{{ log_dir }}/%j.out",
+    "error": "{{ log_dir }}/%j.err"
   },
   "host_removal": {
     "cpus-per-task": {{ threads.host_removal }},
