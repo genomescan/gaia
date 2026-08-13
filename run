@@ -410,6 +410,8 @@ def run_pipeline(args):
     if args.until:
         snakemake_command.extend(["--until", args.until])
 
+    snakemake_command.extend(["--jobs", "unlimited"])
+
     command = shlex.join(snakemake_command)
     print(f"[{WORKFLOW}] Info: Running {command}")
     result = subprocess.run(command, shell=True)
