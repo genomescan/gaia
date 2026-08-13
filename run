@@ -198,6 +198,14 @@ def build_threads(threads_per_tool):
     return {key: threads_per_tool for key in THREAD_KEYS}
 
 
+def absolutize_from_pipeline_root(path_value, run_script_dir):
+    if not path_value:
+        return path_value
+    if os.path.isabs(path_value):
+        return path_value
+    return os.path.join(run_script_dir, path_value)
+
+
 def resolve_path_tokens(rendered_text, run_script_dir):
     resolved_lines = []
     for line in rendered_text.splitlines():
@@ -270,15 +278,33 @@ def write_required_files(run_script_dir, args, job_id):
         "created": now,
         "job_id": job_id,
         "cmdpath": run_script_dir,
-        "containers": {
-            key: os.path.join(run_script_dir, value)
-            for key, value in DEFAULTS["containers"].items()
-        },
         "path_scripts": os.path.join(run_script_dir, "scripts"),
         "output_dir": os.getcwd(),
     }
     config.update(DEFAULTS)
     config.update(vars(args))
+
+    container_paths = config.get("containers", DEFAULTS["containers"])
+    config["containers"] = {
+        key: absolutize_from_pipeline_root(value, run_script_dir)
+        for key, value in container_paths.items()
+    }
+
+    for key in [
+        "host_ref",
+        "lambda_ref",
+        "kraken2_db",
+        "centrifuger_db",
+        "checkm2_db_path",
+        "gtdbtk_db_path",
+        "gtdbtk_mash_db",
+        "acr_db_path",
+        "eukcc_db_path",
+        "bat_db_path",
+        "bat_taxonomy_path",
+    ]:
+        if key in config:
+            config[key] = absolutize_from_pipeline_root(config[key], run_script_dir)
 
     config["preprocessing_enabled"] = args.preprocessing
     config["raw_dir"] = args.input
@@ -301,6 +327,22 @@ def write_required_files(run_script_dir, args, job_id):
         sys.exit(f"[{WORKFLOW}] Error: Config '{args.config}' must contain key 'snakefile'.")
 
     config.update(config_2)
+
+    for key in [
+        "host_ref",
+        "lambda_ref",
+        "kraken2_db",
+        "centrifuger_db",
+        "checkm2_db_path",
+        "gtdbtk_db_path",
+        "gtdbtk_mash_db",
+        "acr_db_path",
+        "eukcc_db_path",
+        "bat_db_path",
+        "bat_taxonomy_path",
+    ]:
+        if key in config:
+            config[key] = absolutize_from_pipeline_root(config[key], run_script_dir)
 
     templates_dir = os.path.join(run_script_dir, "templates")
     env = Environment(
