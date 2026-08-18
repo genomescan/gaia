@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-render_report.py – generate a standalone HTML report for a gaia pipeline run.
+render_report.py – generate a single run-level standalone HTML report for a
+gaia pipeline run across one or more samples.
 
 Combines:
-  - Pipeline metadata (mode, sample, date)
-  - Preprocessing summary (filtering method, host removal stats, versions)
-  - Taxonomy top-10 species per tool (bar chart via Chart.js CDN)
-  - Assembly / genome-bin summary tables
-  - Genome inventory table
+  - Pipeline metadata (mode, samples, date)
+  - Per-sample preprocessing summary (filtering, host removal)
+  - Per-sample taxonomy top-10 species (bar chart + HTML table via Plotly)
+  - Per-sample assembly / genome-bin summary tables
+  - Per-sample genome inventory table
+  - Tool versions (from run-level versions.json in output root)
   - Embedded workflow diagram (_workflow_.png as base64)
 
 Inputs are all optional; sections are shown only when the relevant file
@@ -25,6 +27,7 @@ from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,18 +76,36 @@ def _encode_image_base64(path):
     return f"data:{mime};base64,{data}"
 
 
+def _split_paths(arg):
+    """Split a space-separated (or empty) argument into a list of non-empty paths."""
+    if not arg or not arg.strip():
+        return []
+    return [p for p in arg.split() if p.strip()]
+
+
+def _zip_samples_paths(samples, paths):
+    """Return a dict mapping sample → path, using the paths list by index.
+
+    If *paths* is shorter than *samples*, remaining samples map to empty string.
+    """
+    result = {}
+    for i, sample in enumerate(samples):
+        result[sample] = paths[i] if i < len(paths) else ""
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
 
 def render(
-    sample,
+    samples,
     run_mode,
-    taxonomy_json,
-    genome_summary,
-    genome_inventory,
-    pipeline_summary,
-    host_stats,
+    taxonomy_jsons,
+    genome_summaries,
+    genome_inventories,
+    pipeline_summaries,
+    host_stats_jsons,
     versions_json,
     filtering_method,
     preprocessing_enabled,
@@ -97,35 +118,45 @@ def render(
     workflow_png,
     output,
 ):
-    tax = _read_json(taxonomy_json)
-    host_stats_data = _read_json(host_stats)
     versions = _read_json(versions_json)
 
-    # Build host removal Plotly chart data
-    host_plot_data = None
-    if host_stats_data:
-        host_plot_data = {
-            "labels": ["Host reads", "Non-host reads"],
-            "values": [
-                host_stats_data.get("host_reads", 0),
-                host_stats_data.get("non_host_reads", 0),
-            ],
-            "percentages": [
-                host_stats_data.get("host_percentage", 0),
-                host_stats_data.get("non_host_percentage", 0),
-            ],
-        }
+    # Build per-sample data list
+    samples_data = []
+    for i, sample in enumerate(samples):
+        tax = _read_json(taxonomy_jsons[i] if i < len(taxonomy_jsons) else "")
+        host_stats_data = _read_json(host_stats_jsons[i] if i < len(host_stats_jsons) else "")
+
+        host_plot_data = None
+        if host_stats_data:
+            host_plot_data = {
+                "labels": ["Host reads", "Non-host reads"],
+                "values": [
+                    host_stats_data.get("host_reads", 0),
+                    host_stats_data.get("non_host_reads", 0),
+                ],
+                "percentages": [
+                    host_stats_data.get("host_percentage", 0),
+                    host_stats_data.get("non_host_percentage", 0),
+                ],
+            }
+
+        samples_data.append({
+            "sample": sample,
+            "kraken2_species": tax.get("kraken2", []),
+            "centrifuger_species": tax.get("centrifuger", []),
+            "genome_summary": _read_table(genome_summaries[i] if i < len(genome_summaries) else ""),
+            "genome_inventory": _read_table(genome_inventories[i] if i < len(genome_inventories) else ""),
+            "pipeline_summary": _read_table(pipeline_summaries[i] if i < len(pipeline_summaries) else ""),
+            "host_stats": host_stats_data,
+            "host_plot_data": json.dumps(host_plot_data) if host_plot_data else None,
+        })
 
     context = {
-        "sample": sample,
+        "samples": samples,
+        "samples_data": samples_data,
         "run_mode": run_mode,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "kraken2_species": tax.get("kraken2", []),
-        "centrifuger_species": tax.get("centrifuger", []),
-        "genome_summary": _read_table(genome_summary),
-        "genome_inventory": _read_table(genome_inventory),
-        "pipeline_summary": _read_table(pipeline_summary),
-        # Preprocessing info
+        # Preprocessing info (run-level, same for all samples)
         "preprocessing_enabled": preprocessing_enabled,
         "host_removal_enabled": host_removal_enabled,
         "host_ref": host_ref,
@@ -134,9 +165,6 @@ def render(
         "chopper_quality": chopper_quality,
         "filtlong_min_length": filtlong_min_length,
         "filtlong_keep_percent": filtlong_keep_percent,
-        # Host removal stats
-        "host_stats": host_stats_data,
-        "host_plot_data": json.dumps(host_plot_data) if host_plot_data else None,
         # Versions
         "versions": versions,
         # Workflow diagram as base64
@@ -147,6 +175,7 @@ def render(
         loader=FileSystemLoader(str(_TEMPLATES_DIR)),
         autoescape=select_autoescape(["html"]),
     )
+    env.filters["tojson"] = lambda value, **kwargs: Markup(json.dumps(value))
     template = env.get_template("report.html.j2")
     html = template.render(**context)
 
@@ -163,18 +192,19 @@ def main():
     ap = argparse.ArgumentParser(
         description="Render a standalone HTML report for a gaia pipeline run."
     )
-    ap.add_argument("--sample", required=True)
+    ap.add_argument("--samples", required=True,
+                    help="Comma-separated sample names")
     ap.add_argument("--run-mode", required=True,
                     choices=["profiling_only", "assembly_binning_only", "both"])
-    ap.add_argument("--taxonomy-json", default="",
-                    help="JSON produced by parse_taxonomy.py")
-    ap.add_argument("--genome-summary", default="")
-    ap.add_argument("--genome-inventory", default="")
-    ap.add_argument("--pipeline-summary", default="")
-    ap.add_argument("--host-stats", default="",
-                    help="JSON produced by parse_host_removal.py")
-    ap.add_argument("--versions-json", default="",
-                    help="versions.json copied from metadata by the run wrapper")
+    ap.add_argument("--taxonomy-jsons", default="",
+                    help="Space-separated JSON files produced by parse_taxonomy.py (one per sample, same order as --samples)")
+    ap.add_argument("--genome-summaries", default="")
+    ap.add_argument("--genome-inventories", default="")
+    ap.add_argument("--pipeline-summaries", default="")
+    ap.add_argument("--host-stats-jsons", default="",
+                    help="Space-separated host-removal stats JSON files (one per sample)")
+    ap.add_argument("--versions-json", default="versions.json",
+                    help="versions.json at output root written by the run wrapper")
     ap.add_argument("--filtering-method", default="chopper",
                     choices=["chopper", "filtlong"])
     ap.add_argument("--preprocessing-enabled", default="True")
@@ -185,18 +215,20 @@ def main():
     ap.add_argument("--filtlong-min-length", default="500")
     ap.add_argument("--filtlong-keep-percent", default="90")
     ap.add_argument("--workflow-png", default="",
-                    help="Path to _workflow_.png for embedding as base64")
+                    help="Path to _workflow_.png for embedding as base64 (should be pipeline repo root)")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
+    samples = [s.strip() for s in args.samples.split(",") if s.strip()]
+
     render(
-        sample=args.sample,
+        samples=samples,
         run_mode=args.run_mode,
-        taxonomy_json=args.taxonomy_json,
-        genome_summary=args.genome_summary,
-        genome_inventory=args.genome_inventory,
-        pipeline_summary=args.pipeline_summary,
-        host_stats=args.host_stats,
+        taxonomy_jsons=_split_paths(args.taxonomy_jsons),
+        genome_summaries=_split_paths(args.genome_summaries),
+        genome_inventories=_split_paths(args.genome_inventories),
+        pipeline_summaries=_split_paths(args.pipeline_summaries),
+        host_stats_jsons=_split_paths(args.host_stats_jsons),
         versions_json=args.versions_json,
         filtering_method=args.filtering_method,
         preprocessing_enabled=args.preprocessing_enabled.lower() not in ("false", "0", ""),

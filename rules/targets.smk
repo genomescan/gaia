@@ -5,9 +5,9 @@ rule all:
     default_target: True
     input:
         # -----------------------------------------------------------------
-        # Versions manifest
+        # Versions manifest (written to output root by run wrapper)
         # -----------------------------------------------------------------
-        expand("{sample}/reports/versions.json", sample=SAMPLES),
+        "versions.json",
 
         # -----------------------------------------------------------------
         # Raw QC
@@ -276,4 +276,4 @@ rule all:
             expand("{sample}/reports/final/{sample}.taxonomy_top10.json", sample=SAMPLES)
             if TAXONOMY_ENABLED else []
         ),
-        expand("{sample}/reports/report.html", sample=SAMPLES)
+        "report.html"
