@@ -1,8 +1,13 @@
 import os
 
+PIPELINE_DIR = os.path.dirname(workflow.snakefile)
+
 SAMPLES = config["samples"]
-RAW_DIR = config["paths"]["raw_dir"]
-HOST_REF = config["paths"]["host_ref"]
+SCRIPTS_DIR = config.get("path_scripts") or os.path.join(PIPELINE_DIR, "scripts")
+if not os.path.isabs(SCRIPTS_DIR):
+    SCRIPTS_DIR = os.path.abspath(os.path.join(PIPELINE_DIR, SCRIPTS_DIR))
+RAW_DIR = config["paths"].get("raw_dir", "")
+HOST_REF = config["paths"].get("host_ref", "")
 LAMBDA_REF = config["paths"].get("lambda_ref", "")
 CONTAINERS = config.get("containers", {})
 P = config["params"]
@@ -25,9 +30,12 @@ RUN_PROFILE = RUN_MODE in {"profiling_only", "both"}
 RUN_ASSEMBLY = RUN_MODE in {"assembly_binning_only", "both"}
 
 PREPROCESSING_CFG = config.get("preprocessing", {})
-PREPROCESSING_ENABLED = PREPROCESSING_CFG.get("enabled", True)
-FILTERING_METHOD = PREPROCESSING_CFG.get("filtering_method", "filtlong")
+PREPROCESSING_ENABLED = PREPROCESSING_CFG.get(
+    "enabled", not PREPROCESSING_CFG.get("skip", False)
+)
+FILTERING_METHOD = PREPROCESSING_CFG.get("filtering_method", "chopper")
 QC_TOOL = PREPROCESSING_CFG.get("qc_tool", "nanoplot")
+HOST_REMOVAL_ENABLED = bool(HOST_REF and HOST_REF.strip())
 
 VALID_FILTERING_METHODS = {"chopper", "filtlong"}
 if FILTERING_METHOD not in VALID_FILTERING_METHODS:
@@ -43,21 +51,48 @@ if QC_TOOL not in VALID_QC_TOOLS:
         f"Choose one of: {', '.join(sorted(VALID_QC_TOOLS))}"
     )
 
+def _search_input_file(sample):
+    """Search for a sample's input file in common locations.
+
+    Returns the path (str) for .fastq.gz, .fastq, or .bam, in that priority.
+    Searches: current working directory, RAW_DIR (if set), 'data/raw'.
+    """
+    search_dirs = ["."]
+    if RAW_DIR:
+        search_dirs.append(RAW_DIR)
+    if RAW_DIR != "data/raw":
+        search_dirs.append("data/raw")
+
+    for d in search_dirs:
+        for ext in (".fastq.gz", ".fastq", ".fq.gz", ".fq", ".bam"):
+            candidate = os.path.join(d, f"{sample}{ext}")
+            if os.path.exists(candidate):
+                return candidate
+    # Fallback: return gz path in current dir (will fail loudly at runtime if missing)
+    return f"{sample}.fastq.gz"
+
 def raw_fastq(wc):
-    gz = os.path.join(RAW_DIR, f"{wc.sample}.fastq.gz")
-    plain = os.path.join(RAW_DIR, f"{wc.sample}.fastq")
-    if os.path.exists(gz):
-        return gz
-    if os.path.exists(plain):
-        return plain
-    return gz
+    """Return the raw input file for a sample (FASTQ, FASTQ.GZ, or BAM path)."""
+    return _search_input_file(wc.sample)
+
+
+def raw_fastq_or_converted(wc):
+    """Return a FASTQ.GZ path regardless of original input format.
+
+    If the original input is a .bam file the BAM-conversion rule produces
+    outputs/{sample}/reports/preprocessing/{sample}.input.fastq.gz which is
+    returned here; otherwise the raw FASTQ/FASTQ.GZ is returned directly.
+    """
+    found = _search_input_file(wc.sample)
+    if found.endswith(".bam"):
+        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.input.fastq.gz"
+    return found
+
 
 def downstream_reads(wc):
     if PREPROCESSING_ENABLED:
-        if FILTERING_METHOD == "chopper":
-            return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.chopper.fastq.gz"
-        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.filtlong.fastq.gz"
-    return raw_fastq(wc)
+        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}-preprocessed.fastq.gz"
+    return raw_fastq_or_converted(wc)
 
 def profile_stage_done(wc):
     if RUN_PROFILE and RUN_ASSEMBLY and SERIAL_PROFILE_THEN_ASSEMBLY:

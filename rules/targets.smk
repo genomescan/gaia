@@ -2,6 +2,7 @@
 # Final outputs
 # -------------------------------------------------------------------------
 rule all:
+    default_target: True
     input:
         # -----------------------------------------------------------------
         # Versions manifest
@@ -23,10 +24,6 @@ rule all:
         # -----------------------------------------------------------------
         # Preprocessing final
         # -----------------------------------------------------------------
-        # Only requested when preprocessing is enabled in config.yaml:
-        #
-        # preprocessing:
-        #   enabled: true
         *(
             expand(
                 "outputs/{sample}/reports/preprocessing/{sample}."
@@ -34,6 +31,18 @@ rule all:
                 sample=SAMPLES
             )
             if PREPROCESSING_ENABLED else []
+        ),
+        *(
+            expand("outputs/{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz", sample=SAMPLES)
+            if PREPROCESSING_ENABLED else []
+        ),
+
+        # -----------------------------------------------------------------
+        # Host removal stats
+        # -----------------------------------------------------------------
+        *(
+            expand("outputs/{sample}/reports/preprocessing/{sample}.host_removal_stats.json", sample=SAMPLES)
+            if HOST_REMOVAL_ENABLED else []
         ),
 
         # -----------------------------------------------------------------

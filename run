@@ -1,0 +1,497 @@
+#!/usr/bin/env python3
+# (C) GenomeScan B.V. - Leiden 2024-2026
+
+import argparse
+import glob
+import json
+import os
+import random
+import re
+import shutil
+import string
+import subprocess
+import sys
+from datetime import datetime
+
+from jinja2 import Environment, FileSystemLoader
+
+WORKFLOW = "Gaia"
+VERSION = "1.0.0"
+
+THREAD_KEYS = [
+    "host_removal",
+    "chopper",
+    "filtlong",
+    "nanoplot",
+    "nanoqc",
+    "kraken2",
+    "centrifuger",
+    "centrifuger_quant",
+    "metaflye",
+    "minimap2",
+    "samtools",
+    "depth",
+    "metabat2",
+    "semibin2",
+    "comebin",
+    "dastool",
+    "checkm2",
+    "gtdbtk",
+    "acr",
+    "drep",
+    "eukcc",
+    "bat",
+]
+
+DEFAULTS = {
+    "preprocessing_enabled": True,
+    "preprocessing_skip": False,
+    "filtering_method": "chopper",
+    "lambda_ref": "",
+    "chopper": {"min_length": 500, "quality_threshold": 10},
+    "filtlong": {"min_length": 500, "keep_percent": 90},
+    "kraken2_extra": "--use-names",
+    "centrifuger_extra": "",
+    "centrifuger_quant_extra": "",
+    "assembly_executable": "flye",
+    "assembly_read_type": "--nano-raw",
+    "assembly_extra": "",
+    "assembly_qc_metaquast": False,
+    "assembly_qc_metaquast_references": "",
+    "assembly_qc_extra": "--min-contig 1000 --fragmented",
+    "mapping_enabled": True,
+    "mapping_preset": "map-ont",
+    "mapping_extra": "",
+    "mapping_depth_extra": "",
+    "binning_enabled": True,
+    "semibin2_extra": "--compression none",
+    "comebin_executable": "run_comebin.sh",
+    "comebin_views": 6,
+    "comebin_extra": "-b 128",
+    "metabat2_extra": "--minCV 0 --minCVSum 0",
+    "prok_dastool": True,
+    "prok_checkm2": True,
+    "prok_gtdbtk": True,
+    "dastool_search_engine": "diamond",
+    "dastool_score_threshold": 0.5,
+    "dastool_write_bin_evals": True,
+    "dastool_write_unbinned": False,
+    "dastool_db_directory": "/opt/DAS_Tool/db",
+    "dastool_extra": "",
+    "checkm2_db_path": "databases/checkm2/uniref100.KO.1.dmnd",
+    "checkm2_extension": "fa",
+    "checkm2_extra": "--force",
+    "gtdbtk_db_path": "databases/gtdbtk/",
+    "gtdbtk_mash_db": "",
+    "gtdbtk_extra": "",
+    "euk_acr": True,
+    "euk_drep": True,
+    "euk_eukcc": True,
+    "euk_bat": True,
+    "acr_db_path": "databases/acr/data",
+    "acr_target": "Both",
+    "acr_from_jgi_cov": "Y",
+    "acr_run_gmesEuk": "N",
+    "acr_comp": 50,
+    "acr_extra": "",
+    "drep_extra": "",
+    "eukcc_db_path": "databases/eukcc/",
+    "eukcc_extra": "",
+    "bat_executable": "CAT_pack",
+    "bat_db_path": "databases/bat/db/",
+    "bat_taxonomy_path": "databases/bat/tax/",
+    "bat_bin_suffix": ".fa",
+    "bat_extra": "",
+    "containers": {
+        "preprocessing_qc": "containers/preprocessing_qc.sif",
+        "taxonomy": "containers/taxonomy.sif",
+        "assembly": "containers/assembly.sif",
+        "metabat2": "containers/metabat2.sif",
+        "semibin2": "containers/semibin2.sif",
+        "comebin": "containers/comebin.sif",
+        "prok": "containers/prok.sif",
+        "euk": "containers/euk.sif",
+    },
+}
+
+
+def get_config_options(run_script_dir):
+    config_options = []
+    for config in glob.glob(os.path.join(run_script_dir, "configs", "*")):
+        base = os.path.basename(config)
+        if base.endswith((".obs", ".obsolete", ".old", "_old", ".md")):
+            continue
+        if os.path.isfile(config):
+            config_options.append(base)
+    return sorted(config_options)
+
+
+def parse_args():
+    run_script_dir = os.path.dirname(os.path.realpath(__file__))
+    config_options = get_config_options(run_script_dir)
+
+    parser = argparse.ArgumentParser(description=f"{WORKFLOW} pipeline")
+    parser.add_argument("-v", "--version", action="version", version=f"{WORKFLOW} {VERSION}")
+    parser.add_argument("-i", "--input", help="Path to directory containing raw FASTQ files (or auto-detect in working directory)")
+    parser.add_argument(
+        "-c",
+        "--config",
+        default="both",
+        choices=config_options,
+        help=f"Pipeline config in configs/ (default: %(default)s). Available: {', '.join(config_options)}",
+    )
+    parser.add_argument(
+        "-s",
+        "--samples",
+        default=None,
+        help="Comma-separated sample names (default: derived from --input directory)",
+    )
+    parser.add_argument("--host-ref", default="", help="Host reference FASTA (for optional host read removal during preprocessing)")
+    parser.add_argument(
+        "--skip-preprocessing",
+        action="store_true",
+        help="Skip all preprocessing steps (host removal, filtering, QC). "
+             "By default preprocessing is always performed.",
+    )
+    parser.add_argument(
+        "--filtering-method",
+        default="chopper",
+        choices=["chopper", "filtlong"],
+        help="Filtering method to use during preprocessing (default: chopper)",
+    )
+    parser.add_argument("-t", "--threads", type=int, default=8, help="Number of threads per tool")
+    parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel jobs")
+    parser.add_argument("-d", "--dryrun", action="store_true", help="Dry run")
+    parser.add_argument("-u", "--unlock", action="store_true", help="Unlock working directory")
+    parser.add_argument("--until", default=None, help="Run until a specific rule")
+    parser.add_argument("-k", "--keep-going", action="store_true", help="Keep going on errors")
+    parser.add_argument("-g", "--grid", choices=["local", "slurm"], default="local")
+    parser.add_argument(
+        "-n",
+        "--restart",
+        action="store_true",
+        help="Do not copy/render files, just re-run Snakemake",
+    )
+    return parser.parse_args()
+
+
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def generate_job_id():
+    chars = string.ascii_letters + string.digits
+    return "".join(random.choice(chars) for _ in range(10))
+
+
+def derive_samples(input_dir):
+    if not os.path.isdir(input_dir):
+        return []
+
+    sample_names = set()
+    for filename in sorted(os.listdir(input_dir)):
+        if not filename.endswith((".fastq", ".fastq.gz", ".fq", ".fq.gz", ".bam")):
+            continue
+
+        sample = filename
+        for extension in [".fastq.gz", ".fq.gz", ".fastq", ".fq", ".bam"]:
+            if sample.endswith(extension):
+                sample = sample[: -len(extension)]
+                break
+
+        sample = re.sub(r"([._-]R?[12])$", "", sample)
+        if sample:
+            sample_names.add(sample)
+
+    return sorted(sample_names)
+
+
+def build_threads(threads_per_tool):
+    return {key: threads_per_tool for key in THREAD_KEYS}
+
+
+def absolutize_from_pipeline_root(path_value, run_script_dir):
+    if not path_value:
+        return path_value
+    if os.path.isabs(path_value):
+        return path_value
+    return os.path.join(run_script_dir, path_value)
+
+
+def resolve_path_tokens(rendered_text, run_script_dir):
+    resolved_lines = []
+    for line in rendered_text.splitlines():
+        if ":" in line:
+            prefix, value = line.split(":", 1)
+            stripped_value = value.strip().strip('"').strip("'")
+            if stripped_value.startswith("PATH_"):
+                relative = stripped_value.replace("PATH_", "", 1).lstrip("/")
+                absolute = os.path.abspath(os.path.join(run_script_dir, relative))
+                line = f'{prefix}: "{absolute}"'
+        resolved_lines.append(line)
+    return "\n".join(resolved_lines) + "\n"
+
+
+def inline_include_statements(snakefile_path, run_script_dir, included=None):
+    if included is None:
+        included = set()
+
+    snakefile_path = os.path.abspath(snakefile_path)
+    if snakefile_path in included:
+        return ""
+    included.add(snakefile_path)
+
+    lines = []
+    include_regex = re.compile(r'^\s*include:\s*["\']([^"\']+)["\']\s*$')
+    with open(snakefile_path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            match = include_regex.match(line)
+            if match:
+                include_path = os.path.join(run_script_dir, match.group(1))
+                if not os.path.isfile(include_path):
+                    sys.exit(f"[{WORKFLOW}] Error: Included file not found: {include_path}")
+                lines.append(f"\n# Begin include: {match.group(1)}\n")
+                lines.append(inline_include_statements(include_path, run_script_dir, included))
+                lines.append(f"# End include: {match.group(1)}\n")
+            else:
+                if re.match(r'^\s*configfile:\s*["\']config\.ya?ml["\']\s*$', line):
+                    lines.append('configfile: "config.yml"\n')
+                else:
+                    lines.append(line)
+    return "".join(lines)
+
+
+def yaml_inline_value(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(json.dumps(item) for item in value) + "]"
+    if value is None:
+        return "null"
+    return json.dumps(value)
+
+
+def append_pipeline_config_block(config_file, config_2):
+    with open(config_file, "a", encoding="utf-8") as handle:
+        handle.write("\n# pipeline config\n")
+        for key, value in config_2.items():
+            if key == "snakefile":
+                continue
+            handle.write(f"{key}: {yaml_inline_value(value)}\n")
+
+
+def write_required_files(run_script_dir, args, job_id):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    config = {
+        "version": VERSION,
+        "workflow": WORKFLOW,
+        "created": now,
+        "job_id": job_id,
+        "cmdpath": run_script_dir,
+        "path_scripts": os.path.abspath(os.path.join(run_script_dir, "scripts")),
+        "output_dir": os.getcwd(),
+    }
+    config.update(DEFAULTS)
+    config.update(vars(args))
+
+    container_paths = config.get("containers", DEFAULTS["containers"])
+    config["containers"] = {
+        key: absolutize_from_pipeline_root(value, run_script_dir)
+        for key, value in container_paths.items()
+    }
+
+    for key in [
+        "host_ref",
+        "lambda_ref",
+        "kraken2_db",
+        "centrifuger_db",
+        "checkm2_db_path",
+        "gtdbtk_db_path",
+        "gtdbtk_mash_db",
+        "acr_db_path",
+        "eukcc_db_path",
+        "bat_db_path",
+        "bat_taxonomy_path",
+    ]:
+        if key in config:
+            config[key] = absolutize_from_pipeline_root(config[key], run_script_dir)
+
+    config["preprocessing_enabled"] = not getattr(args, "skip_preprocessing", False)
+    config["preprocessing_skip"] = getattr(args, "skip_preprocessing", False)
+    config["filtering_method"] = getattr(args, "filtering_method", "chopper")
+    config["raw_dir"] = args.input or ""
+    config["threads"] = build_threads(args.threads)
+    config["log_dir"] = os.path.join(os.getcwd(), "cluster-logs")
+
+    if args.samples:
+        config["samples"] = [sample.strip() for sample in args.samples.split(",") if sample.strip()]
+    elif args.input:
+        config["samples"] = derive_samples(args.input)
+    else:
+        config["samples"] = derive_samples(".")
+
+    if not config["samples"]:
+        sys.exit(
+            f"[{WORKFLOW}] Error: No samples found. Pass --samples or add FASTQ files in {args.input}."
+        )
+
+    config_path = os.path.join(run_script_dir, "configs", args.config)
+    config_2 = load_json(config_path)
+    if "snakefile" not in config_2:
+        sys.exit(f"[{WORKFLOW}] Error: Config '{args.config}' must contain key 'snakefile'.")
+
+    config.update(config_2)
+    config["path_scripts"] = os.path.abspath(os.path.join(run_script_dir, "scripts"))
+
+    for key in [
+        "host_ref",
+        "lambda_ref",
+        "kraken2_db",
+        "centrifuger_db",
+        "checkm2_db_path",
+        "gtdbtk_db_path",
+        "gtdbtk_mash_db",
+        "acr_db_path",
+        "eukcc_db_path",
+        "bat_db_path",
+        "bat_taxonomy_path",
+    ]:
+        if key in config:
+            config[key] = absolutize_from_pipeline_root(config[key], run_script_dir)
+
+    templates_dir = os.path.join(run_script_dir, "templates")
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    env.filters["tojson"] = lambda value: json.dumps(value)
+
+    config_template = env.get_template("config_yml_template.j2")
+    rendered_config = config_template.render(**config)
+    rendered_config = resolve_path_tokens(rendered_config, run_script_dir)
+
+    config_yml_path = os.path.join(os.getcwd(), "config.yml")
+    with open(config_yml_path, "w", encoding="utf-8") as handle:
+        handle.write(rendered_config)
+    append_pipeline_config_block(config_yml_path, config_2)
+    print(f"[{WORKFLOW}] Info: Written config.yml")
+
+    if args.grid != "local":
+        cluster_template = env.get_template("cluster_json_template.j2")
+        rendered_cluster = cluster_template.render(**config)
+        with open(os.path.join(os.getcwd(), "cluster.json"), "w", encoding="utf-8") as handle:
+            handle.write(rendered_cluster)
+        print(f"[{WORKFLOW}] Info: Written cluster.json")
+
+    snakefile_source = os.path.join(run_script_dir, config_2["snakefile"])
+    if not os.path.isfile(snakefile_source):
+        sys.exit(f"[{WORKFLOW}] Error: Snakefile not found: {snakefile_source}")
+
+    snakefile_target = os.path.join(os.getcwd(), "Snakefile")
+    shutil.copyfile(snakefile_source, snakefile_target)
+
+    snakefile_content = inline_include_statements(snakefile_target, run_script_dir)
+    snakefile_header = f"# Created {now} by {WORKFLOW}\n"
+    with open(snakefile_target, "w", encoding="utf-8") as handle:
+        handle.write(snakefile_header)
+        handle.write(snakefile_content)
+    print(f"[{WORKFLOW}] Info: Written Snakefile")
+
+
+def check_path_existance(args):
+    if args.input and not os.path.isdir(args.input):
+        sys.exit(f"[{WORKFLOW}] Error: Input directory does not exist: {args.input}")
+    if args.host_ref and not os.path.isfile(args.host_ref):
+        sys.exit(f"[{WORKFLOW}] Error: Host reference does not exist: {args.host_ref}")
+
+
+def run_pipeline(args):
+    job_id = generate_job_id()
+
+    if not args.restart:
+        write_required_files(os.path.dirname(os.path.realpath(__file__)), args, job_id)
+
+    if args.grid != "local":
+        os.makedirs("cluster-logs", exist_ok=True)
+
+    if args.unlock:
+        unlock_command = "snakemake -s Snakefile --unlock"
+        print(f"[{WORKFLOW}] Info: {unlock_command}")
+        subprocess.run(unlock_command, shell=True)
+        return
+
+    snakemake_command = [
+        "snakemake",
+        "-s",
+        "Snakefile",
+        "-p",
+        "-r",
+        "--rerun-incomplete",
+    ]
+    snakemake_command.extend(["--max-jobs-per-second", "10", "--restart-times", "2"])
+    snakemake_command.extend(["--use-singularity", "--singularity-args", '"--bind /mnt"'])
+
+    if args.grid == "local":
+        snakemake_command.extend(["--cores", str(args.jobs * args.threads)])
+    elif args.jobs == 1:
+        snakemake_command.extend(["--cores", "200"])
+    else:
+        snakemake_command.extend(["--cores", str(args.jobs)])
+
+    if args.grid != "local":
+        snakemake_command.extend(["--latency-wait", "120", "--cluster-config", f"{os.getcwd()}/cluster.json"])
+
+    if args.grid == "slurm":
+        snakemake_command.extend([
+            "--cluster",
+            "\"sbatch",
+            "--parsable",
+            "--chdir=.",
+            "--job-name={cluster.jobname}",
+            "--output={cluster.output}",
+            "--error={cluster.error}",
+            "--cpus-per-task={cluster.cpus-per-task}",
+            "--mem={cluster.mem}",
+            "--time={cluster.time}",
+            "\"",
+        ])
+        snakemake_command.extend(["--jobs", "unlimited"])
+
+    if args.keep_going:
+        snakemake_command.extend(["--keep-going"])
+
+    if args.dryrun:
+        snakemake_command.extend(["--dry-run"])
+
+    snakemake_command.extend(["--jobname", f"\"{{name}}.{job_id}.{{jobid}}\""])
+
+    if args.until:
+        snakemake_command.extend(["--until", args.until])
+
+    command = " ".join(snakemake_command)
+    print(f"[{WORKFLOW}] Info: Running {command}")
+    result = subprocess.run(command, shell=True)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
+def main(args):
+    if not args.input and not args.samples:
+        # Try auto-detecting samples from current working directory
+        auto_samples = derive_samples(".")
+        if not auto_samples:
+            sys.exit(
+                f"[{WORKFLOW}] Error: No input directory specified (-i/--input) and no "
+                "FASTQ/BAM files found in the current directory. "
+                "Use -i to specify an input directory or -s to specify sample names."
+            )
+    check_path_existance(args)
+    run_pipeline(args)
+
+
+if __name__ == "__main__":
+    main(parse_args())

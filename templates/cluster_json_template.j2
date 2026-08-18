@@ -1,0 +1,220 @@
+{
+  "__default__": {
+    "jobname": "{rule}",
+    "cpus-per-task": 1,
+    "mem": "8G",
+    "time": "24:00:00",
+    "output": "{{ log_dir }}/%j.out",
+    "error": "{{ log_dir }}/%j.err"
+  },
+
+  "host_removal": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.host_removal }},
+    "mem": "32G",
+    "time": "12:00:00"
+  },
+
+  "chopper": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.chopper }},
+    "mem": "8G",
+    "time": "08:00:00"
+  },
+
+  "filtlong": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.filtlong }},
+    "mem": "8G",
+    "time": "08:00:00"
+  },
+
+  "nanoplot_raw": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.nanoplot }},
+    "mem": "16G",
+    "time": "12:00:00"
+  },
+
+  "nanoqc_raw": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.nanoqc }},
+    "mem": "8G",
+    "time": "08:00:00"
+  },
+
+  "nanoplot_filtered": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.nanoplot }},
+    "mem": "16G",
+    "time": "12:00:00"
+  },
+
+  "nanoqc_filtered": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.nanoqc }},
+    "mem": "8G",
+    "time": "08:00:00"
+  },
+
+  "kraken2_classify": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.kraken2 }},
+    "mem": "400G",
+    "time": "7-00:00:00"
+  },
+
+  "centrifuger_classify": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.centrifuger }},
+    "mem": "128G",
+    "time": "7-00:00:00"
+  },
+
+  "centrifuger_quant": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.centrifuger_quant }},
+    "mem": "32G",
+    "time": "2-00:00:00"
+  },
+
+  "metaflye_assemble": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.metaflye }},
+    "mem": "192G",
+    "time": "7-00:00:00"
+  },
+
+  "metaquast_assembly": {
+    "jobname": "{rule}",
+    "cpus-per-task": 16,
+    "mem": "128G",
+    "time": "3-00:00:00"
+  },
+
+  "map_reads_to_assembly": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.minimap2 }},
+    "mem": "64G",
+    "time": "2-00:00:00"
+  },
+
+  "contig_depth": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.depth }},
+    "mem": "32G",
+    "time": "1-00:00:00"
+  },
+
+  "metabat2_bin": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.metabat2 }},
+    "mem": "64G",
+    "time": "2-00:00:00"
+  },
+
+  "semibin2_bin": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.semibin2 }},
+    "mem": "128G",
+    "time": "3-00:00:00"
+  },
+
+  "comebin_bin": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.comebin }},
+    "mem": "128G",
+    "time": "3-00:00:00"
+  },
+
+  "collect_all_bins": {
+    "jobname": "{rule}",
+    "cpus-per-task": 4,
+    "mem": "16G",
+    "time": "08:00:00"
+  },
+
+  "metabat2_contig2bin": {
+    "jobname": "{rule}",
+    "cpus-per-task": 2,
+    "mem": "8G",
+    "time": "04:00:00"
+  },
+
+  "semibin2_contig2bin": {
+    "jobname": "{rule}",
+    "cpus-per-task": 2,
+    "mem": "8G",
+    "time": "04:00:00"
+  },
+
+  "comebin_contig2bin": {
+    "jobname": "{rule}",
+    "cpus-per-task": 2,
+    "mem": "8G",
+    "time": "04:00:00"
+  },
+
+  "dastool_refine": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.dastool }},
+    "mem": "64G",
+    "time": "3-00:00:00"
+  },
+
+  "checkm2_prok": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.checkm2 }},
+    "mem": "64G",
+    "time": "3-00:00:00"
+  },
+
+  "gtdbtk_classify": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.gtdbtk }},
+    "mem": "192G",
+    "time": "7-00:00:00"
+  },
+
+  "acr_refine": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.acr }},
+    "mem": "128G",
+    "time": "7-00:00:00"
+  },
+
+  "keep_euk_from_acr": {
+    "jobname": "{rule}",
+    "cpus-per-task": 4,
+    "mem": "16G",
+    "time": "08:00:00"
+  },
+
+  "drep_euk_compare": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.drep }},
+    "mem": "64G",
+    "time": "3-00:00:00"
+  },
+
+  "eukcc_euk_candidates": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.eukcc }},
+    "mem": "64G",
+    "time": "3-00:00:00"
+  },
+
+  "select_best_euk_bins": {
+    "jobname": "{rule}",
+    "cpus-per-task": 4,
+    "mem": "16G",
+    "time": "12:00:00"
+  },
+
+  "bat_classify": {
+    "jobname": "{rule}",
+    "cpus-per-task": {{ threads.bat }},
+    "mem": "128G",
+    "time": "5-00:00:00"
+  }
+}
