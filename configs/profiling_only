@@ -1,0 +1,10 @@
+{
+    "snakefile": "Snakefile",
+    "description": "Run only the read-level taxonomic profiling branch",
+    "run_mode": "profiling_only",
+    "serial_profile_then_assembly": false,
+    "taxonomy_tools": ["kraken2", "centrifuger"],
+    "kraken2_db": "databases/k2_core_nt_20250609/",
+    "centrifuger_db": "databases/core_nt_20250611/cfr_core_nt",
+    "binning_tools": []
+}

@@ -15,6 +15,25 @@ rule copy_versions:
         """
 
 # -------------------------------------------------------------------------
+# Collect tool versions → versions.json in pipeline run directory
+# -------------------------------------------------------------------------
+rule collect_versions:
+    container:
+        CONTAINERS["preprocessing_qc"]
+    output:
+        json="versions.json"
+    shell:
+        r"""
+        python {SCRIPTS_DIR}/collect_versions.py \
+          --tools nanoplot nanoqc minimap2 samtools chopper filtlong \
+                  kraken2 centrifuger metaflye metaquast \
+                  jgi_summarize_bam_contig_depths metabat2 semibin2 comebin \
+                  dastool checkm2 gtdbtk eukcc bat drep \
+          --output {output.json}
+        """
+
+
+# -------------------------------------------------------------------------
 # Parse taxonomy reports → JSON (top-N species per classifier)
 # -------------------------------------------------------------------------
 rule parse_taxonomy_report:
@@ -32,12 +51,13 @@ rule parse_taxonomy_report:
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/final
-        python scripts/parse_taxonomy.py \
+        python {SCRIPTS_DIR}/parse_taxonomy.py \
           --kraken2-report "{input.kraken2_report}" \
           --centrifuger-report "{input.centrifuger_report}" \
           --top-n 10 \
           --output {output.json}
         """
+
 
 # -------------------------------------------------------------------------
 # Render HTML report
@@ -59,21 +79,48 @@ rule render_report:
         pipeline_summary=lambda wc: (
             f"outputs/{wc.sample}/reports/final/{wc.sample}.pipeline_summary.tsv"
             if RUN_PROFILE and RUN_ASSEMBLY else []
-        )
+        ),
+        host_stats=lambda wc: (
+            f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.host_removal_stats.json"
+            if HOST_REMOVAL_ENABLED else []
+        ),
+        versions_json="versions.json"
     output:
         html="outputs/{sample}/reports/final/{sample}.report.html"
     params:
-        run_mode=RUN_MODE
+        run_mode=RUN_MODE,
+        filtering_method=FILTERING_METHOD,
+        preprocessing_enabled=PREPROCESSING_ENABLED,
+        host_removal_enabled=HOST_REMOVAL_ENABLED,
+        host_ref=HOST_REF,
+        chopper_min_length=P["chopper"]["min_length"],
+        chopper_quality=P["chopper"]["quality_threshold"],
+        filtlong_min_length=P["filtlong"]["min_length"],
+        filtlong_keep_percent=P["filtlong"]["keep_percent"],
+        workflow_png=lambda wc: os.path.join(
+            config.get("cmdpath", "."), "_workflow_.png"
+        )
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/final
-        python scripts/render_report.py \
+        python {SCRIPTS_DIR}/render_report.py \
           --sample {wildcards.sample} \
           --run-mode {params.run_mode} \
           --taxonomy-json "{input.taxonomy_json}" \
           --genome-summary "{input.genome_summary}" \
           --genome-inventory "{input.genome_inventory}" \
           --pipeline-summary "{input.pipeline_summary}" \
+          --host-stats "{input.host_stats}" \
+          --versions-json "{input.versions_json}" \
+          --filtering-method "{params.filtering_method}" \
+          --preprocessing-enabled "{params.preprocessing_enabled}" \
+          --host-removal-enabled "{params.host_removal_enabled}" \
+          --host-ref "{params.host_ref}" \
+          --chopper-min-length "{params.chopper_min_length}" \
+          --chopper-quality "{params.chopper_quality}" \
+          --filtlong-min-length "{params.filtlong_min_length}" \
+          --filtlong-keep-percent "{params.filtlong_keep_percent}" \
+          --workflow-png "{params.workflow_png}" \
           --output {output.html}
         """
 
@@ -100,7 +147,7 @@ rule report_branch2_genomes:
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/final
-        python scripts/merge_final_reports.py \
+        python {SCRIPTS_DIR}/merge_final_reports.py \
           --sample {wildcards.sample} \
           --prok-bins {input.prok_bins} \
           --checkm2 {input.checkm2} \
@@ -148,7 +195,7 @@ rule report_pipeline_summary:
         summary="outputs/{sample}/reports/final/{sample}.pipeline_summary.tsv"
     shell:
         r"""
-        python scripts/report_pipeline_summary.py \
+        python {SCRIPTS_DIR}/report_pipeline_summary.py \
           --sample {wildcards.sample} \
           --kraken2-report "{input.kraken2_report}" \
           --centrifuger-report "{input.centrifuger_report}" \

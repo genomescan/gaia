@@ -112,14 +112,12 @@ rule keep_euk_from_acr:
         euk_dir=directory("outputs/{sample}/reports/refinement/euk/euk_bins"),
         manifest="outputs/{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
         done="outputs/{sample}/reports/refinement/euk/euk_bins/.done"
-    params:
-        script="scripts/keep_euk_bins.py"
     shell:
         r"""
         rm -rf {output.euk_dir}
         mkdir -p {output.euk_dir}
 
-        python {params.script} \
+        python {SCRIPTS_DIR}/keep_euk_bins.py \
           --input-dir {input.refined_dir} \
           --output-dir {output.euk_dir} \
           --manifest {output.manifest}
@@ -289,14 +287,12 @@ rule select_best_euk_bins:
         selected_dir=directory("outputs/{sample}/reports/refinement/euk/final_bins/selected_bins"),
         selected_manifest="outputs/{sample}/reports/refinement/euk/final_bins/selected_bins.tsv",
         done="outputs/{sample}/reports/refinement/euk/final_bins/.done"
-    params:
-        script="scripts/select_best_euk_bins.py"
     shell:
         r"""
         rm -rf {output.selected_dir}
         mkdir -p {output.selected_dir}
 
-        python {params.script} \
+        python {SCRIPTS_DIR}/select_best_euk_bins.py \
           --input-dir {input.euk_dir} \
           --clusters {input.cluster_info} \
           --eukcc {input.eukcc} \

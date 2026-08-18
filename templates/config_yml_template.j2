@@ -1,5 +1,3 @@
-# NOTE: This static example is not used by the `run` wrapper.
-# The wrapper generates `config.yml` in the working directory at runtime.
 # =============================================================================
 # Long-read metagenomics pipeline configuration
 # =============================================================================
@@ -22,30 +20,24 @@ run:
   #   "profiling_only"         = run only the read-level taxonomic profiling branch
   #   "assembly_binning_only"  = run only the assembly/genome reconstruction branch
   #   "both"                   = run both branches
-  mode: "both"
+  mode: "{{ run_mode }}"
 
   # Controls whether the profiling branch must finish before the assembly branch
   # starts. If true, profiling is completed first. If false, profiling and
   # assembly steps may run in parallel - might be resource intensive.
-  serial_profile_then_assembly: true
+  serial_profile_then_assembly: {{ serial_profile_then_assembly | lower }}
 
 
 # =============================================================================
 # 2. Read preprocessing
 # =============================================================================
 preprocessing:
-  # Preprocessing is always performed by default.
-  # Set skip: true or pass --skip-preprocessing to the run wrapper to disable.
-  skip: false
+  # Preprocessing is always performed unless --skip-preprocessing is passed to the run wrapper.
+  # The `skip` flag is set automatically by the wrapper.
+  skip: {{ preprocessing_skip | lower }}
 
-  # Filtering method to apply after host removal.
-  # "chopper"  - quality + length filtering only
-  # "filtlong" - quality + length filtering followed by subsampling
-  filtering_method: "filtlong"
-
-  # QC tool to use for both raw and filtered read QC reports.
-  # "nanoplot" (default) or "nanoqc"
-  qc_tool: "nanoplot"
+  # Filtering method: "chopper" (default) or "filtlong"
+  filtering_method: "{{ filtering_method }}"
 
 
 # =============================================================================
@@ -53,23 +45,27 @@ preprocessing:
 # =============================================================================
 samples:
   # The pipeline expects matching input FASTQ files in paths.raw_dir.
-  - zymod6300
-
+{% for sample in samples %}
+  - {{ sample }}
+{% endfor %}
 
 # =============================================================================
 # 4. Input and reference paths
 # =============================================================================
 paths:
   # Optional: directory containing the raw input FASTQ/BAM files.
-  # If omitted the pipeline auto-detects supported files in the current directory.
-  raw_dir: "data/raw"
+  # If omitted the pipeline auto-detects supported files (*.fastq, *.fastq.gz,
+  # *.fq, *.fq.gz, *.bam) in the current working directory.
+  raw_dir: "{{ raw_dir }}"
 
   # Host reference genome used for optional host read removal during preprocessing.
   # Leave empty ("") to skip host removal entirely.
-  host_ref: ""
+  host_ref: "{{ host_ref }}"
 
   # Optional lambda phage reference used for additional read filtering if needed.
-  lambda_ref: ""
+  lambda_ref: "{{ lambda_ref }}"
+
+path_scripts: "{{ path_scripts }}"
 
 
 # =============================================================================
@@ -80,44 +76,44 @@ params:
   # These values should not exceed the resources available to the Snakemake run
   # or the Slurm job.
   threads:
-    host_removal: 16
-    chopper: 8
-    filtlong: 8
-    nanoplot: 4
-    nanoqc: 4
-    kraken2: 32
-    centrifuger: 32
-    centrifuger_quant: 8
-    metaflye: 32
-    minimap2: 24
-    samtools: 8
-    depth: 8
-    metabat2: 32
-    semibin2: 32
-    comebin: 32
-    dastool: 24
-    checkm2: 24
-    gtdbtk: 32
-    acr: 16
-    drep: 16
-    eukcc: 16
-    bat: 32
+    host_removal: {{ threads.host_removal }}
+    chopper: {{ threads.chopper }}
+    filtlong: {{ threads.filtlong }}
+    nanoplot: {{ threads.nanoplot }}
+    nanoqc: {{ threads.nanoqc }}
+    kraken2: {{ threads.kraken2 }}
+    centrifuger: {{ threads.centrifuger }}
+    centrifuger_quant: {{ threads.centrifuger_quant }}
+    metaflye: {{ threads.metaflye }}
+    minimap2: {{ threads.minimap2 }}
+    samtools: {{ threads.samtools }}
+    depth: {{ threads.depth }}
+    metabat2: {{ threads.metabat2 }}
+    semibin2: {{ threads.semibin2 }}
+    comebin: {{ threads.comebin }}
+    dastool: {{ threads.dastool }}
+    checkm2: {{ threads.checkm2 }}
+    gtdbtk: {{ threads.gtdbtk }}
+    acr: {{ threads.acr }}
+    drep: {{ threads.drep }}
+    eukcc: {{ threads.eukcc }}
+    bat: {{ threads.bat }}
 
   # Chopper settings used during read filtering when preprocessing is enabled.
   chopper:
     # Minimum read length to keep.
-    min_length: 500
+    min_length: {{ chopper.min_length }}
 
     # Minimum read quality threshold.
-    quality_threshold: 10
+    quality_threshold: {{ chopper.quality_threshold }}
 
   # Filtlong settings used during read filtering when preprocessing is enabled.
   filtlong:
     # Minimum read length to keep.
-    min_length: 500
+    min_length: {{ filtlong.min_length }}
 
     # Percentage of the best reads to retain, based on Filtlong ranking.
-    keep_percent: 90
+    keep_percent: {{ filtlong.keep_percent }}
 
 
 # =============================================================================
@@ -128,39 +124,39 @@ taxonomy:
   #   ["kraken2"]
   #   ["centrifuger"]
   #   ["kraken2", "centrifuger"]
-  tools: ["kraken2", "centrifuger"]
+  tools: {{ taxonomy_tools | tojson }}
 
   # Kraken2 database directory.
-  kraken2_db: "databases/kraken2/"
+  kraken2_db: "{{ kraken2_db }}"
 
   # Centrifuger database directory - point directly to db prefix.
-  centrifuger_db: "databases/centrifuger/cfr_core_nt"
+  centrifuger_db: "{{ centrifuger_db }}"
 
   kraken2:
     # Additional Kraken2 arguments.
-    extra: "--use-names"
+    extra: "{{ kraken2_extra }}"
 
   centrifuger:
     # Additional Centrifuger classification arguments.
-    extra: ""
+    extra: "{{ centrifuger_extra }}"
 
     quant:
       # Additional Centrifuger abundance quantification arguments.
-      extra: ""
+      extra: "{{ centrifuger_quant_extra }}"
 
 
 # =============================================================================
 # 7. Assembly
 # =============================================================================
 assembly:
-  executable: "flye"
+  executable: "{{ assembly_executable }}"
 
   # Flye read type.
   # "--nano-raw", "--nano-hq",...
-  read_type: "--nano-raw"
+  read_type: "{{ assembly_read_type }}"
 
   # Additional arguments.
-  extra: ""
+  extra: "{{ assembly_extra }}"
 
 
 # =============================================================================
@@ -168,13 +164,13 @@ assembly:
 # =============================================================================
 assembly_qc:
   # Enable or disable MetaQUAST assembly evaluation.
-  metaquast: false
+  metaquast: {{ assembly_qc_metaquast | lower }}
 
   # Reference genomes for MetaQUAST.
-  metaquast_references: ""
+  metaquast_references: "{{ assembly_qc_metaquast_references }}"
 
   # Additional arguments.
-  extra: "--min-contig 1000 --fragmented"
+  extra: "{{ assembly_qc_extra }}"
 
 
 # =============================================================================
@@ -183,16 +179,16 @@ assembly_qc:
 mapping:
   # Enable or disable mapping of reads back to assembled contigs.
   # Mapping is required for coverage-based binning.
-  enabled: true
+  enabled: {{ mapping_enabled | lower }}
 
   # minimap2 preset.
-  preset: "map-ont"
+  preset: "{{ mapping_preset }}"
 
   # Additional minimap2 arguments.
-  extra: ""
+  extra: "{{ mapping_extra }}"
 
   # Additional arguments for the contig depth/coverage calculation step.
-  depth_extra: ""
+  depth_extra: "{{ mapping_depth_extra }}"
 
 
 # =============================================================================
@@ -200,7 +196,7 @@ mapping:
 # =============================================================================
 binning:
   # Enable or disable metagenomic binning.
-  enabled: true
+  enabled: {{ binning_enabled | lower }}
 
   # Binning tools to run:
   #   "metabat2"
@@ -208,24 +204,24 @@ binning:
   #   "comebin"
   #
   # Multiple binners can be selected.
-  tools: ["metabat2", "semibin2", "comebin"]
+  tools: {{ binning_tools | tojson }}
 
   semibin2:
     # Additional SemiBin2 arguments.
-    extra: "--compression none"
+    extra: "{{ semibin2_extra }}"
 
   comebin:
-    executable: "run_comebin.sh"
+    executable: "{{ comebin_executable }}"
 
     # Number of augmented coverage/embedding views used by COMEBin.
-    views: 6
+    views: {{ comebin_views }}
 
     # Additional COMEBin arguments.
-    extra: "-b 128"
+    extra: "{{ comebin_extra }}"
 
   metabat2:
     # Additional MetaBAT2 arguments.
-    extra: "--minCV 0 --minCVSum 0"
+    extra: "{{ metabat2_extra }}"
 
 
 # =============================================================================
@@ -237,54 +233,54 @@ refinement:
   # ---------------------------------------------------------------------------
   prok:
     # Refinement with DAS Tool
-    dastool: true
+    dastool: {{ prok_dastool | lower }}
 
     # Estimate prokaryotic bin quality with CheckM2.
     # Requires dastool: true
-    checkm2: true
+    checkm2: {{ prok_checkm2 | lower }}
 
     # Classify prokaryotic bins with GTDB-Tk.
     # Requires checkm2: true
-    gtdbtk: true
+    gtdbtk: {{ prok_gtdbtk | lower }}
 
     dastool_params:
       # Search engine used by DAS Tool.
-      search_engine: "diamond"
+      search_engine: "{{ dastool_search_engine }}"
 
       # DAS Tool score threshold for selecting refined bins.
-      score_threshold: 0.5
+      score_threshold: {{ dastool_score_threshold }}
 
       # Write detailed bin evaluation files.
-      write_bin_evals: true
+      write_bin_evals: {{ dastool_write_bin_evals | lower }}
 
       # Write unbinned contigs to output.
-      write_unbinned: false
+      write_unbinned: {{ dastool_write_unbinned | lower }}
 
       # DAS Tool db dir inside the container.
-      db_directory: "/opt/DAS_Tool/db"
+      db_directory: "{{ dastool_db_directory }}"
 
       # Additional DAS Tool arguments.
-      extra: ""
+      extra: "{{ dastool_extra }}"
 
     checkm2_params:
       # CheckM2 database file.
-      db_path: "databases/checkm2/uniref100.KO.1.dmnd"
+      db_path: "{{ checkm2_db_path }}"
 
       # Bin file extension expected by CheckM2.
-      extension: "fa"
+      extension: "{{ checkm2_extension }}"
 
       # Additional CheckM2 arguments.
-      extra: "--force"
+      extra: "{{ checkm2_extra }}"
 
     gtdbtk_params:
       # GTDB-Tk database directory.
-      db_path: "databases/gtdbtk/"
+      db_path: "{{ gtdbtk_db_path }}"
 
       # Optional GTDB-Tk Mash database path.
-      mash_db: ""
+      mash_db: "{{ gtdbtk_mash_db }}"
 
       # Additional GTDB-Tk arguments.
-      extra: ""
+      extra: "{{ gtdbtk_extra }}"
 
 
   # ---------------------------------------------------------------------------
@@ -292,73 +288,73 @@ refinement:
   # ---------------------------------------------------------------------------
   euk:
     # Refinement with ACR.
-    acr: true
+    acr: {{ euk_acr | lower }}
 
     # Dereplicate or compare refined eukaryotic bins with dRep.
-    drep: true
+    drep: {{ euk_drep | lower }}
 
     # Estimate eukaryotic bin quality with EukCC.
-    eukcc: true
+    eukcc: {{ euk_eukcc | lower }}
 
     # Classify eukaryotic bins with BAT/CAT.
-    bat: true
+    bat: {{ euk_bat | lower }}
 
     acr_params:
       # ACR database directory.
-      db_path: "databases/acr/data"
+      db_path: "{{ acr_db_path }}"
 
       # ACR target setting.
       # "Both" - refinement of prok and euk candidates.
-      target: "Both"
+      target: "{{ acr_target }}"
 
       # Coverage input provided in JGI depth format.
-      from_jgi_cov: "Y"
+      from_jgi_cov: "{{ acr_from_jgi_cov }}"
 
       # GeneMark-ES/ET related steps are run.
-      run_gmesEuk: "N"
+      run_gmesEuk: "{{ acr_run_gmesEuk }}"
 
       # Minimum completeness threshold.
-      comp: 50
+      comp: {{ acr_comp }}
 
       # Additional ACR arguments.
-      extra: ""
+      extra: "{{ acr_extra }}"
 
     drep_params:
       # Additional dRep arguments.
-      extra: ""
+      extra: "{{ drep_extra }}"
 
     eukcc_params:
       # EukCC database directory.
-      db_path: "databases/eukcc/"
+      db_path: "{{ eukcc_db_path }}"
 
       # Additional EukCC arguments.
-      extra: ""
+      extra: "{{ eukcc_extra }}"
 
     bat_params:
-      executable: "CAT_pack"
+      executable: "{{ bat_executable }}"
 
       # BAT database directory.
-      db_path: "databases/bat/db/"
+      db_path: "{{ bat_db_path }}"
 
       # BAT taxonomy directory.
-      taxonomy_path: "databases/bat/tax/"
+      taxonomy_path: "{{ bat_taxonomy_path }}"
 
       # Bin file suffix.
-      bin_suffix: ".fa"
+      bin_suffix: "{{ bat_bin_suffix }}"
 
       # Additional BAT arguments.
-      extra: ""
+      extra: "{{ bat_extra }}"
 
 
 # =============================================================================
 # 12. Containers
 # =============================================================================
 containers:
-  preprocessing_qc: "containers/sif/preprocessing_qc.sif"
-  taxonomy: "containers/sif/taxonomy.sif"
-  assembly: "containers/sif/assembly.sif"
-  metabat2: "containers/sif/metabat2.sif"
-  semibin2: "containers/sif/semibin2.sif"
-  comebin: "containers/sif/comebin.sif"
-  prok: "containers/sif/prok.sif"
-  euk: "containers/sif/euk.sif"
+  preprocessing_qc: "{{ containers.preprocessing_qc }}"
+  taxonomy: "{{ containers.taxonomy }}"
+  assembly: "{{ containers.assembly }}"
+  metabat2: "{{ containers.metabat2 }}"
+  semibin2: "{{ containers.semibin2 }}"
+  comebin: "{{ containers.comebin }}"
+  prok: "{{ containers.prok }}"
+  euk: "{{ containers.euk }}"
