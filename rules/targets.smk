@@ -245,4 +245,11 @@ rule all:
         *(
             expand("outputs/{sample}/reports/final/{sample}.pipeline_summary.tsv", sample=SAMPLES)
             if RUN_PROFILE and RUN_ASSEMBLY else []
-        )
+        ),
+
+        # HTML report (generated for all active pipeline modes)
+        *(
+            expand("outputs/{sample}/reports/final/{sample}.taxonomy_top10.json", sample=SAMPLES)
+            if TAXONOMY_ENABLED else []
+        ),
+        expand("outputs/{sample}/reports/final/{sample}.report.html", sample=SAMPLES)
