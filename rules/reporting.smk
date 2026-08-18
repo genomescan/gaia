@@ -1,5 +1,68 @@
 
 # -------------------------------------------------------------------------
+# Parse taxonomy reports → JSON (top-N species per classifier)
+# -------------------------------------------------------------------------
+rule parse_taxonomy_report:
+    input:
+        kraken2_report=lambda wc: (
+            f"outputs/{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
+            if TAXONOMY_ENABLED and "kraken2" in TAX_TOOLS else []
+        ),
+        centrifuger_report=lambda wc: (
+            f"outputs/{wc.sample}/reports/taxonomy/centrifuger/{wc.sample}.centrifuger.report.tsv"
+            if TAXONOMY_ENABLED and "centrifuger" in TAX_TOOLS else []
+        )
+    output:
+        json="outputs/{sample}/reports/final/{sample}.taxonomy_top10.json"
+    shell:
+        r"""
+        mkdir -p outputs/{wildcards.sample}/reports/final
+        python scripts/parse_taxonomy.py \
+          --kraken2-report "{input.kraken2_report}" \
+          --centrifuger-report "{input.centrifuger_report}" \
+          --top-n 10 \
+          --output {output.json}
+        """
+
+# -------------------------------------------------------------------------
+# Render HTML report
+# -------------------------------------------------------------------------
+rule render_report:
+    input:
+        taxonomy_json=lambda wc: (
+            f"outputs/{wc.sample}/reports/final/{wc.sample}.taxonomy_top10.json"
+            if TAXONOMY_ENABLED else []
+        ),
+        genome_summary=lambda wc: (
+            f"outputs/{wc.sample}/reports/final/{wc.sample}.genome_summary.tsv"
+            if RUN_ASSEMBLY else []
+        ),
+        genome_inventory=lambda wc: (
+            f"outputs/{wc.sample}/reports/final/{wc.sample}.genome_inventory.tsv"
+            if RUN_ASSEMBLY else []
+        ),
+        pipeline_summary=lambda wc: (
+            f"outputs/{wc.sample}/reports/final/{wc.sample}.pipeline_summary.tsv"
+            if RUN_PROFILE and RUN_ASSEMBLY else []
+        )
+    output:
+        html="outputs/{sample}/reports/final/{sample}.report.html"
+    params:
+        run_mode=RUN_MODE
+    shell:
+        r"""
+        mkdir -p outputs/{wildcards.sample}/reports/final
+        python scripts/render_report.py \
+          --sample {wildcards.sample} \
+          --run-mode {params.run_mode} \
+          --taxonomy-json "{input.taxonomy_json}" \
+          --genome-summary "{input.genome_summary}" \
+          --genome-inventory "{input.genome_inventory}" \
+          --pipeline-summary "{input.pipeline_summary}" \
+          --output {output.html}
+        """
+
+# -------------------------------------------------------------------------
 # Branch 2 genome reporting
 # -------------------------------------------------------------------------
 rule report_branch2_genomes:
