@@ -127,7 +127,7 @@ lr_mg_pipeline_final/
 │       └── add_host.md
 ├── databases/
 │   └── add_dbs.md
-└── outputs/
+└── {sample}/reports/
 ```
 
 ## Requirements
@@ -214,23 +214,41 @@ The expected container paths are defined in the `containers` section of `config.
 
 ## Output structure
 
-All outputs are written under:
+All sample outputs are written under:
 
 ```text
-outputs/{sample}/reports/
+{sample}/reports/
 ```
 Main output directories include:
 
 ```text
-outputs/{sample}/reports/QC/              Read quality control reports
-outputs/{sample}/reports/preprocessing/   Preprocessed reads, if enabled
-outputs/{sample}/reports/taxonomy/        Kraken2 and Centrifuger outputs
-outputs/{sample}/reports/assembly/        metaFlye assembly output
-outputs/{sample}/reports/mapping_depth/   Read mapping and contig depth files
-outputs/{sample}/reports/binning/         Binning outputs
-outputs/{sample}/reports/refinement/      Prokaryotic and eukaryotic refinement outputs
-outputs/{sample}/reports/final/           Final summary reports
+{sample}/reports/QC/              Read quality control reports
+{sample}/reports/preprocessing/   Preprocessed reads, if enabled
+{sample}/reports/taxonomy/        Kraken2 and Centrifuger outputs
+{sample}/reports/assembly/        metaFlye assembly output
+{sample}/reports/mapping_depth/   Read mapping and contig depth files
+{sample}/reports/binning/         Binning outputs
+{sample}/reports/refinement/      Prokaryotic and eukaryotic refinement outputs
+{sample}/reports/final/           Final summary tables
 ```
+
+The main Gaia HTML report is generated at:
+
+```text
+{sample}/reports/report.html
+```
+
+### Versions manifest handling
+
+- `metadata/versions.json` is the single source of truth for tool versions.
+- The `run` wrapper copies this file into each sample report directory as:
+
+```text
+{sample}/reports/versions.json
+```
+
+- The report renderer reads this copied `versions.json` and displays the versions table in `report.html`.
+- Dynamic Python-based tool version collection is no longer part of the workflow.
 
 ## Acknowledgements
 

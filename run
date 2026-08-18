@@ -362,6 +362,15 @@ def write_required_files(run_script_dir, args, job_id):
         if key in config:
             config[key] = absolutize_from_pipeline_root(config[key], run_script_dir)
 
+    metadata_versions = os.path.join(run_script_dir, "metadata", "versions.json")
+    if not os.path.isfile(metadata_versions):
+        sys.exit(f"[{WORKFLOW}] Error: versions manifest not found: {metadata_versions}")
+    for sample in config["samples"]:
+        report_dir = os.path.join(os.getcwd(), sample, "reports")
+        os.makedirs(report_dir, exist_ok=True)
+        shutil.copyfile(metadata_versions, os.path.join(report_dir, "versions.json"))
+    print(f"[{WORKFLOW}] Info: Copied metadata/versions.json into each sample reports directory")
+
     templates_dir = os.path.join(run_script_dir, "templates")
     env = Environment(
         loader=FileSystemLoader(templates_dir),

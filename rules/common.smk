@@ -80,23 +80,23 @@ def raw_fastq_or_converted(wc):
     """Return a FASTQ.GZ path regardless of original input format.
 
     If the original input is a .bam file the BAM-conversion rule produces
-    outputs/{sample}/reports/preprocessing/{sample}.input.fastq.gz which is
+    {sample}/reports/preprocessing/{sample}.input.fastq.gz which is
     returned here; otherwise the raw FASTQ/FASTQ.GZ is returned directly.
     """
     found = _search_input_file(wc.sample)
     if found.endswith(".bam"):
-        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.input.fastq.gz"
+        return f"{wc.sample}/reports/preprocessing/{wc.sample}.input.fastq.gz"
     return found
 
 
 def downstream_reads(wc):
     if PREPROCESSING_ENABLED:
-        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}-preprocessed.fastq.gz"
+        return f"{wc.sample}/reports/preprocessing/{wc.sample}-preprocessed.fastq.gz"
     return raw_fastq_or_converted(wc)
 
 def profile_stage_done(wc):
     if RUN_PROFILE and RUN_ASSEMBLY and SERIAL_PROFILE_THEN_ASSEMBLY:
-        return f"outputs/{wc.sample}/stages/profile/{wc.sample}.done"
+        return f"{wc.sample}/stages/profile/{wc.sample}.done"
     return []
 
 # -------------------------------------------------------------------------
@@ -116,7 +116,7 @@ TAXONOMY_ENABLED = RUN_PROFILE and len(TAX_TOOLS) > 0
 
 def centrifuger_serial_dep(wc):
     if "kraken2" in TAX_TOOLS and "centrifuger" in TAX_TOOLS:
-        return f"outputs/{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
+        return f"{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
     return []
 
 # -------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def enabled_dastool_tools():
 
 def dastool_inputs(wc):
     return [
-        f"outputs/{wc.sample}/reports/binning/normalized/{tool}.contig2bin.tsv"
+        f"{wc.sample}/reports/binning/normalized/{tool}.contig2bin.tsv"
         for tool in enabled_dastool_tools()
     ]
 

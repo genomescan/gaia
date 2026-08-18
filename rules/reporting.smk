@@ -1,56 +1,21 @@
-
-PIPELINE_DIR = os.path.dirname(workflow.snakefile)
-
-# -------------------------------------------------------------------------
-# Copy static versions manifest into the run directory
-# -------------------------------------------------------------------------
-rule copy_versions:
-    input:
-        os.path.join(PIPELINE_DIR, "metadata", "versions.json")
-    output:
-        "versions.json"
-    shell:
-        r"""
-        cp {input} {output}
-        """
-
-# -------------------------------------------------------------------------
-# Collect tool versions → versions.json in pipeline run directory
-# -------------------------------------------------------------------------
-rule collect_versions:
-    container:
-        CONTAINERS["preprocessing_qc"]
-    output:
-        json="versions.json"
-    shell:
-        r"""
-        python {SCRIPTS_DIR}/collect_versions.py \
-          --tools nanoplot nanoqc minimap2 samtools chopper filtlong \
-                  kraken2 centrifuger metaflye metaquast \
-                  jgi_summarize_bam_contig_depths metabat2 semibin2 comebin \
-                  dastool checkm2 gtdbtk eukcc bat drep \
-          --output {output.json}
-        """
-
-
 # -------------------------------------------------------------------------
 # Parse taxonomy reports → JSON (top-N species per classifier)
 # -------------------------------------------------------------------------
 rule parse_taxonomy_report:
     input:
         kraken2_report=lambda wc: (
-            f"outputs/{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
+            f"{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
             if TAXONOMY_ENABLED and "kraken2" in TAX_TOOLS else []
         ),
         centrifuger_report=lambda wc: (
-            f"outputs/{wc.sample}/reports/taxonomy/centrifuger/{wc.sample}.centrifuger.report.tsv"
+            f"{wc.sample}/reports/taxonomy/centrifuger/{wc.sample}.centrifuger.report.tsv"
             if TAXONOMY_ENABLED and "centrifuger" in TAX_TOOLS else []
         )
     output:
-        json="outputs/{sample}/reports/final/{sample}.taxonomy_top10.json"
+        json="{sample}/reports/final/{sample}.taxonomy_top10.json"
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/final
+        mkdir -p {wildcards.sample}/reports/final
         python {SCRIPTS_DIR}/parse_taxonomy.py \
           --kraken2-report "{input.kraken2_report}" \
           --centrifuger-report "{input.centrifuger_report}" \
@@ -65,28 +30,28 @@ rule parse_taxonomy_report:
 rule render_report:
     input:
         taxonomy_json=lambda wc: (
-            f"outputs/{wc.sample}/reports/final/{wc.sample}.taxonomy_top10.json"
+            f"{wc.sample}/reports/final/{wc.sample}.taxonomy_top10.json"
             if TAXONOMY_ENABLED else []
         ),
         genome_summary=lambda wc: (
-            f"outputs/{wc.sample}/reports/final/{wc.sample}.genome_summary.tsv"
+            f"{wc.sample}/reports/final/{wc.sample}.genome_summary.tsv"
             if RUN_ASSEMBLY else []
         ),
         genome_inventory=lambda wc: (
-            f"outputs/{wc.sample}/reports/final/{wc.sample}.genome_inventory.tsv"
+            f"{wc.sample}/reports/final/{wc.sample}.genome_inventory.tsv"
             if RUN_ASSEMBLY else []
         ),
         pipeline_summary=lambda wc: (
-            f"outputs/{wc.sample}/reports/final/{wc.sample}.pipeline_summary.tsv"
+            f"{wc.sample}/reports/final/{wc.sample}.pipeline_summary.tsv"
             if RUN_PROFILE and RUN_ASSEMBLY else []
         ),
         host_stats=lambda wc: (
-            f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.host_removal_stats.json"
+            f"{wc.sample}/reports/preprocessing/{wc.sample}.host_removal_stats.json"
             if HOST_REMOVAL_ENABLED else []
         ),
-        versions_json="versions.json"
+        versions_json="{sample}/reports/versions.json"
     output:
-        html="outputs/{sample}/reports/final/{sample}.report.html"
+        html="{sample}/reports/report.html"
     params:
         run_mode=RUN_MODE,
         filtering_method=FILTERING_METHOD,
@@ -102,7 +67,7 @@ rule render_report:
         )
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/final
+        mkdir -p {wildcards.sample}/reports
         python {SCRIPTS_DIR}/render_report.py \
           --sample {wildcards.sample} \
           --run-mode {params.run_mode} \
@@ -129,24 +94,24 @@ rule render_report:
 # -------------------------------------------------------------------------
 rule report_branch2_genomes:
     input:
-        prok_bins="outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
-        checkm2="outputs/{sample}/reports/refinement/prok/checkm2/quality_report.tsv",
-        gtdb_bac="outputs/{sample}/reports/refinement/prok/gtdbtk/gtdbtk.bac120.summary.tsv",
-        gtdb_ar="outputs/{sample}/reports/refinement/prok/gtdbtk/gtdbtk.ar53.summary.tsv",
-        dastool_map="outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_contig2bin.tsv",
-        euk_bins="outputs/{sample}/reports/refinement/euk/final_bins/selected_bins",
-        eukcc="outputs/{sample}/reports/refinement/euk/eukcc/eukcc.csv",
-        bat="outputs/{sample}/reports/refinement/euk/bat/bin2classification.txt",
-        drep_clusters="outputs/{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
-        kept_manifest="outputs/{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
-        selected_manifest="outputs/{sample}/reports/refinement/euk/final_bins/selected_bins.tsv"
+        prok_bins="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
+        checkm2="{sample}/reports/refinement/prok/checkm2/quality_report.tsv",
+        gtdb_bac="{sample}/reports/refinement/prok/gtdbtk/gtdbtk.bac120.summary.tsv",
+        gtdb_ar="{sample}/reports/refinement/prok/gtdbtk/gtdbtk.ar53.summary.tsv",
+        dastool_map="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_contig2bin.tsv",
+        euk_bins="{sample}/reports/refinement/euk/final_bins/selected_bins",
+        eukcc="{sample}/reports/refinement/euk/eukcc/eukcc.csv",
+        bat="{sample}/reports/refinement/euk/bat/bin2classification.txt",
+        drep_clusters="{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
+        kept_manifest="{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
+        selected_manifest="{sample}/reports/refinement/euk/final_bins/selected_bins.tsv"
     output:
-        inventory="outputs/{sample}/reports/final/{sample}.genome_inventory.tsv",
-        summary="outputs/{sample}/reports/final/{sample}.genome_summary.tsv",
-        trace="outputs/{sample}/reports/final/{sample}.bin_trace.tsv"
+        inventory="{sample}/reports/final/{sample}.genome_inventory.tsv",
+        summary="{sample}/reports/final/{sample}.genome_summary.tsv",
+        trace="{sample}/reports/final/{sample}.bin_trace.tsv"
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/final
+        mkdir -p {wildcards.sample}/reports/final
         python {SCRIPTS_DIR}/merge_final_reports.py \
           --sample {wildcards.sample} \
           --prok-bins {input.prok_bins} \
@@ -170,15 +135,15 @@ rule report_branch2_genomes:
 # -------------------------------------------------------------------------
 rule profile_stage_complete:
     input:
-        kraken2_out="outputs/{sample}/reports/taxonomy/kraken2/{sample}.kraken2.output.txt" if "kraken2" in TAX_TOOLS else [],
-        kraken2_report="outputs/{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt" if "kraken2" in TAX_TOOLS else [],
-        centrifuger_classif="outputs/{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.classification.tsv" if "centrifuger" in TAX_TOOLS else [],
-        centrifuger_report="outputs/{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv" if "centrifuger" in TAX_TOOLS else []
+        kraken2_out="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.output.txt" if "kraken2" in TAX_TOOLS else [],
+        kraken2_report="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt" if "kraken2" in TAX_TOOLS else [],
+        centrifuger_classif="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.classification.tsv" if "centrifuger" in TAX_TOOLS else [],
+        centrifuger_report="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv" if "centrifuger" in TAX_TOOLS else []
     output:
-        done="outputs/{sample}/stages/profile/{sample}.done"
+        done="{sample}/stages/profile/{sample}.done"
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/stages/profile
+        mkdir -p {wildcards.sample}/stages/profile
         touch {output.done}
         """
 
@@ -187,12 +152,12 @@ rule profile_stage_complete:
 # -------------------------------------------------------------------------
 rule report_pipeline_summary:
     input:
-        kraken2_report="outputs/{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt" if "kraken2" in TAX_TOOLS else [],
-        centrifuger_report="outputs/{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv" if "centrifuger" in TAX_TOOLS else [],
-        genome_summary="outputs/{sample}/reports/final/{sample}.genome_summary.tsv",
-        inventory="outputs/{sample}/reports/final/{sample}.genome_inventory.tsv"
+        kraken2_report="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt" if "kraken2" in TAX_TOOLS else [],
+        centrifuger_report="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv" if "centrifuger" in TAX_TOOLS else [],
+        genome_summary="{sample}/reports/final/{sample}.genome_summary.tsv",
+        inventory="{sample}/reports/final/{sample}.genome_inventory.tsv"
     output:
-        summary="outputs/{sample}/reports/final/{sample}.pipeline_summary.tsv"
+        summary="{sample}/reports/final/{sample}.pipeline_summary.tsv"
     shell:
         r"""
         python {SCRIPTS_DIR}/report_pipeline_summary.py \

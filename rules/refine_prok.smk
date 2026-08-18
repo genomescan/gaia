@@ -5,18 +5,18 @@ rule dastool_refine:
     container:
         CONTAINERS["prok"]
     input:
-        assembly="outputs/{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
+        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
         bin_tables=dastool_inputs
     output:
-        summary="outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_summary.tsv",
-        contig2bin="outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_contig2bin.tsv",
-        bins=directory("outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins"),
-        done="outputs/{sample}/reports/refinement/prok/dastool/.done"
+        summary="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_summary.tsv",
+        contig2bin="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_contig2bin.tsv",
+        bins=directory("{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins"),
+        done="{sample}/reports/refinement/prok/dastool/.done"
     threads:
         P["threads"].get("dastool", 16)
     params:
-        outdir="outputs/{sample}/reports/refinement/prok/dastool",
-        out_prefix="outputs/{sample}/reports/refinement/prok/dastool/{sample}",
+        outdir="{sample}/reports/refinement/prok/dastool",
+        out_prefix="{sample}/reports/refinement/prok/dastool/{sample}",
         labels=lambda wc: dastool_labels(),
         input_string=lambda wc: dastool_input_string(wc),
         extra=DASTOOL_EXTRA,
@@ -78,15 +78,15 @@ rule checkm2_prok:
     container:
         CONTAINERS["prok"]
     input:
-        bins="outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
-        dastool_done="outputs/{sample}/reports/refinement/prok/dastool/.done"
+        bins="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
+        dastool_done="{sample}/reports/refinement/prok/dastool/.done"
     output:
-        quality="outputs/{sample}/reports/refinement/prok/checkm2/quality_report.tsv",
-        done="outputs/{sample}/reports/refinement/prok/checkm2/.done"
+        quality="{sample}/reports/refinement/prok/checkm2/quality_report.tsv",
+        done="{sample}/reports/refinement/prok/checkm2/.done"
     threads:
         P["threads"].get("checkm2", 24)
     params:
-        outdir="outputs/{sample}/reports/refinement/prok/checkm2",
+        outdir="{sample}/reports/refinement/prok/checkm2",
         db=CHECKM2_DB,
         extension=CHECKM2_EXTENSION,
         extra=CHECKM2_EXTRA,
@@ -137,16 +137,16 @@ rule gtdbtk_classify:
     container:
         CONTAINERS["prok"]
     input:
-        bins="outputs/{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
-        checkm2_done="outputs/{sample}/reports/refinement/prok/checkm2/.done"
+        bins="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
+        checkm2_done="{sample}/reports/refinement/prok/checkm2/.done"
     output:
-        bac120="outputs/{sample}/reports/refinement/prok/gtdbtk/gtdbtk.bac120.summary.tsv",
-        ar53="outputs/{sample}/reports/refinement/prok/gtdbtk/gtdbtk.ar53.summary.tsv",
-        done="outputs/{sample}/reports/refinement/prok/gtdbtk/.done"
+        bac120="{sample}/reports/refinement/prok/gtdbtk/gtdbtk.bac120.summary.tsv",
+        ar53="{sample}/reports/refinement/prok/gtdbtk/gtdbtk.ar53.summary.tsv",
+        done="{sample}/reports/refinement/prok/gtdbtk/.done"
     threads:
         P["threads"].get("gtdbtk", 32)
     params:
-        outdir="outputs/{sample}/reports/refinement/prok/gtdbtk",
+        outdir="{sample}/reports/refinement/prok/gtdbtk",
         db_env=(lambda wc: f'export GTDBTK_DATA_PATH="{GTDBTK_DB}";' if GTDBTK_DB else ""),
         mash_arg=(lambda wc: f"--mash_db {GTDBTK_MASH_DB}" if GTDBTK_MASH_DB else ""),
         extra=GTDBTK_EXTRA,

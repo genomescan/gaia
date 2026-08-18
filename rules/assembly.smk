@@ -8,13 +8,13 @@ rule metaflye_assemble:
         reads=downstream_reads,
         profile_done=profile_stage_done
     output:
-        assembly="outputs/{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
-        assembly_info="outputs/{sample}/reports/assembly/metaflye/{sample}/assembly_info.txt",
-        graph="outputs/{sample}/reports/assembly/metaflye/{sample}/assembly_graph.gfa"
+        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
+        assembly_info="{sample}/reports/assembly/metaflye/{sample}/assembly_info.txt",
+        graph="{sample}/reports/assembly/metaflye/{sample}/assembly_graph.gfa"
     threads:
         P["threads"].get("metaflye", 32)
     params:
-        outdir="outputs/{sample}/reports/assembly/metaflye/{sample}",
+        outdir="{sample}/reports/assembly/metaflye/{sample}",
         read_type=ASSEMBLY_READ_TYPE,
         extra=ASSEMBLY_EXTRA,
         enabled=ASSEMBLY_ENABLED,
@@ -52,14 +52,14 @@ rule metaquast_assembly:
     container:
         CONTAINERS["assembly"]
     input:
-        assembly="outputs/{sample}/reports/assembly/metaflye/{sample}/assembly.fasta"
+        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta"
     output:
-        report="outputs/{sample}/reports/assembly/assembly_qc/metaquast/{sample}/report.html",
-        tsv="outputs/{sample}/reports/assembly/assembly_qc/metaquast/{sample}/report.tsv"
+        report="{sample}/reports/assembly/assembly_qc/metaquast/{sample}/report.html",
+        tsv="{sample}/reports/assembly/assembly_qc/metaquast/{sample}/report.tsv"
     threads:
         P["threads"].get("metaquast", 16)
     params:
-        outdir="outputs/{sample}/reports/assembly/assembly_qc/metaquast/{sample}",
+        outdir="{sample}/reports/assembly/assembly_qc/metaquast/{sample}",
         refs=METAQUAST_REFERENCES,
         extra=METAQUAST_EXTRA,
         enabled=METAQUAST_ENABLED

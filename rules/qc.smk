@@ -7,15 +7,15 @@ rule nanoplot_raw:
     input:
         fastq=raw_fastq
     output:
-        html="outputs/{sample}/reports/QC/raw/{sample}_NanoPlot-report.html"
+        html="{sample}/reports/QC/raw/{sample}_NanoPlot-report.html"
     threads:
         P["threads"]["nanoplot"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC/raw
+        mkdir -p {wildcards.sample}/reports/QC/raw
         NanoPlot \
             --fastq {input.fastq} \
-            -o outputs/{wildcards.sample}/reports/QC/raw \
+            -o {wildcards.sample}/reports/QC/raw \
             --prefix {wildcards.sample}_
         """
 
@@ -26,12 +26,12 @@ rule nanoqc_raw:
     input:
         fastq=raw_fastq
     output:
-        html="outputs/{sample}/reports/QC/raw/{sample}_nanoQC.html"
+        html="{sample}/reports/QC/raw/{sample}_nanoQC.html"
     threads:
         P["threads"]["nanoqc"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC/raw
+        mkdir -p {wildcards.sample}/reports/QC/raw
         tmpdir=$(mktemp -d)
 
         nanoQC \
@@ -52,15 +52,15 @@ rule nanoplot_filtered:
     input:
         fastq=downstream_reads
     output:
-        html="outputs/{sample}/reports/QC/filtered/{sample}_NanoPlot-report.html"
+        html="{sample}/reports/QC/filtered/{sample}_NanoPlot-report.html"
     threads:
         P["threads"]["nanoplot"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC/filtered
+        mkdir -p {wildcards.sample}/reports/QC/filtered
         NanoPlot \
             --fastq {input.fastq} \
-            -o outputs/{wildcards.sample}/reports/QC/filtered \
+            -o {wildcards.sample}/reports/QC/filtered \
             --prefix {wildcards.sample}_
         """
 
@@ -71,12 +71,12 @@ rule nanoqc_filtered:
     input:
         fastq=downstream_reads
     output:
-        html="outputs/{sample}/reports/QC/filtered/{sample}_nanoQC.html"
+        html="{sample}/reports/QC/filtered/{sample}_nanoQC.html"
     threads:
         P["threads"]["nanoqc"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC/filtered
+        mkdir -p {wildcards.sample}/reports/QC/filtered
         tmpdir=$(mktemp -d)
 
         nanoQC \
