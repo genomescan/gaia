@@ -5,6 +5,11 @@ rule all:
     default_target: True
     input:
         # -----------------------------------------------------------------
+        # Tool versions (always collected)
+        # -----------------------------------------------------------------
+        "versions.json",
+
+        # -----------------------------------------------------------------
         # Raw QC
         # -----------------------------------------------------------------
         expand("outputs/{sample}/reports/QC/{sample}_RAW_NanoPlot-report.html", sample=SAMPLES),
@@ -13,13 +18,17 @@ rule all:
         # -----------------------------------------------------------------
         # Preprocessing final
         # -----------------------------------------------------------------
-        # Only requested when preprocessing is enabled in config.yaml:
-        #
-        # preprocessing:
-        #   enabled: true
         *(
             expand("outputs/{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz", sample=SAMPLES)
             if PREPROCESSING_ENABLED else []
+        ),
+
+        # -----------------------------------------------------------------
+        # Host removal stats
+        # -----------------------------------------------------------------
+        *(
+            expand("outputs/{sample}/reports/preprocessing/{sample}.host_removal_stats.json", sample=SAMPLES)
+            if HOST_REMOVAL_ENABLED else []
         ),
 
         # -----------------------------------------------------------------

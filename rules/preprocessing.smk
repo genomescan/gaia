@@ -1,39 +1,79 @@
 # -------------------------------------------------------------------------
-# Host removal (minimap2 wrapper)
+# BAM → FASTQ conversion (only triggered when input is a .bam file)
 # -------------------------------------------------------------------------
-rule host_removal:
+rule convert_bam_to_fastq:
     container:
         CONTAINERS["preprocessing_qc"]
     input:
-        host_ref=HOST_REF,
-        reads=raw_fastq
+        bam=lambda wc: _search_input_file(wc.sample)
     output:
-        bam="outputs/{sample}/reports/preprocessing/{sample}.host.bam",
-        flagstat="outputs/{sample}/reports/preprocessing/{sample}.host.flagstat.txt",
-        nohost="outputs/{sample}/reports/preprocessing/{sample}.nohost.fastq.gz"
+        fastq="outputs/{sample}/reports/preprocessing/{sample}.input.fastq.gz"
     threads:
-        P["threads"]["host_removal"]
-    params:
-        out_prefix="outputs/{sample}/reports/preprocessing/{sample}"
+        P["threads"]["samtools"]
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/preprocessing
-        {SCRIPTS_DIR}/host_removal_mm2.sh \
-            -r {input.host_ref} \
-            -i {input.reads} \
-            -o {params.out_prefix} \
-            -t {threads}
+        samtools fastq -@ {threads} {input.bam} -T "*" -0 {output.fastq}
         """
 
 
 # -------------------------------------------------------------------------
-# Chopper: length/quality filtering
+# Host removal (minimap2 wrapper) – only runs when HOST_REF is provided
 # -------------------------------------------------------------------------
-rule chopper:
+if HOST_REMOVAL_ENABLED:
+    rule host_removal:
+        container:
+            CONTAINERS["preprocessing_qc"]
+        input:
+            host_ref=HOST_REF,
+            reads=raw_fastq_or_converted
+        output:
+            bam="outputs/{sample}/reports/preprocessing/{sample}.host.bam",
+            flagstat="outputs/{sample}/reports/preprocessing/{sample}.host.flagstat.txt",
+            nohost="outputs/{sample}/reports/preprocessing/{sample}.nohost.fastq.gz"
+        threads:
+            P["threads"]["host_removal"]
+        params:
+            out_prefix="outputs/{sample}/reports/preprocessing/{sample}"
+        shell:
+            r"""
+            mkdir -p outputs/{wildcards.sample}/reports/preprocessing
+            {SCRIPTS_DIR}/host_removal_mm2.sh \
+                -r {input.host_ref} \
+                -i {input.reads} \
+                -o {params.out_prefix} \
+                -t {threads}
+            """
+
+    rule parse_host_removal_stats:
+        input:
+            flagstat="outputs/{sample}/reports/preprocessing/{sample}.host.flagstat.txt"
+        output:
+            json="outputs/{sample}/reports/preprocessing/{sample}.host_removal_stats.json"
+        shell:
+            r"""
+            python {SCRIPTS_DIR}/parse_host_removal.py \
+                --sample {wildcards.sample} \
+                --flagstat {input.flagstat} \
+                --output {output.json}
+            """
+
+
+def _reads_after_host_removal(wc):
+    """Return the reads to use for filtering (post-host-removal or raw)."""
+    if HOST_REMOVAL_ENABLED:
+        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.nohost.fastq.gz"
+    return raw_fastq_or_converted(wc)
+
+
+# -------------------------------------------------------------------------
+# Chopper: length/quality filtering (default method)
+# -------------------------------------------------------------------------
+rule chopper_filter:
     container:
         CONTAINERS["preprocessing_qc"]
     input:
-        reads="outputs/{sample}/reports/preprocessing/{sample}.nohost.fastq.gz"
+        reads=_reads_after_host_removal
     output:
         "outputs/{sample}/reports/preprocessing/{sample}.chopper.fastq.gz"
     threads:
@@ -51,16 +91,17 @@ rule chopper:
           | gzip -c > {output}
         """
 
+
 # -------------------------------------------------------------------------
-# Filtlong: additional filtering/subsampling
+# Filtlong: alternative filtering method
 # -------------------------------------------------------------------------
-rule filtlong:
+rule filtlong_filter:
     container:
         CONTAINERS["preprocessing_qc"]
     input:
-        "outputs/{sample}/reports/preprocessing/{sample}.chopper.fastq.gz"
+        reads=_reads_after_host_removal
     output:
-        "outputs/{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz"
+        "outputs/{sample}/reports/preprocessing/{sample}.filtlong.fastq.gz"
     threads:
         P["threads"]["filtlong"]
     params:
@@ -71,6 +112,24 @@ rule filtlong:
         filtlong \
             --min_length {params.min_length} \
             --keep_percent {params.keep_percent} \
-            {input} \
+            {input.reads} \
         | gzip -c > {output}
+        """
+
+
+# -------------------------------------------------------------------------
+# Final preprocessed reads: symlink/copy from selected filtering method
+# -------------------------------------------------------------------------
+rule finalize_preprocessed:
+    input:
+        reads=lambda wc: (
+            f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.chopper.fastq.gz"
+            if FILTERING_METHOD == "chopper"
+            else f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.filtlong.fastq.gz"
+        )
+    output:
+        "outputs/{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz"
+    shell:
+        r"""
+        cp {input.reads} {output}
         """

@@ -11,8 +11,8 @@ if not os.path.isabs(SCRIPTS_DIR):
     raise ValueError(
         f"config.yml key 'path_scripts' must be an absolute path, got: {SCRIPTS_DIR}"
     )
-RAW_DIR = config["paths"]["raw_dir"]
-HOST_REF = config["paths"]["host_ref"]
+RAW_DIR = config["paths"].get("raw_dir", "")
+HOST_REF = config["paths"].get("host_ref", "")
 LAMBDA_REF = config["paths"].get("lambda_ref", "")
 CONTAINERS = config.get("containers", {})
 P = config["params"]
@@ -35,21 +35,56 @@ RUN_PROFILE = RUN_MODE in {"profiling_only", "both"}
 RUN_ASSEMBLY = RUN_MODE in {"assembly_binning_only", "both"}
 
 PREPROCESSING_CFG = config.get("preprocessing", {})
-PREPROCESSING_ENABLED = PREPROCESSING_CFG.get("enabled", True)
+# Preprocessing is always enabled by default; can be skipped via --skip-preprocessing in run wrapper
+PREPROCESSING_ENABLED = not PREPROCESSING_CFG.get("skip", False)
+# Filtering method: "chopper" (default) or "filtlong"
+FILTERING_METHOD = PREPROCESSING_CFG.get("filtering_method", "chopper")
+# Host removal is conditional: only when a non-empty host_ref path is provided
+HOST_REMOVAL_ENABLED = bool(HOST_REF and HOST_REF.strip())
+
+def _search_input_file(sample):
+    """Search for a sample's input file in common locations.
+
+    Returns the path (str) for .fastq.gz, .fastq, or .bam, in that priority.
+    Searches: current working directory, RAW_DIR (if set), 'data/raw'.
+    """
+    search_dirs = ["."]
+    if RAW_DIR:
+        search_dirs.append(RAW_DIR)
+    if RAW_DIR != "data/raw":
+        search_dirs.append("data/raw")
+
+    for d in search_dirs:
+        for ext in (".fastq.gz", ".fastq", ".fq.gz", ".fq", ".bam"):
+            candidate = os.path.join(d, f"{sample}{ext}")
+            if os.path.exists(candidate):
+                return candidate
+    # Fallback: return gz path in current dir (will fail loudly at runtime if missing)
+    return f"{sample}.fastq.gz"
+
 
 def raw_fastq(wc):
-    gz = os.path.join(RAW_DIR, f"{wc.sample}.fastq.gz")
-    plain = os.path.join(RAW_DIR, f"{wc.sample}.fastq")
-    if os.path.exists(gz):
-        return gz
-    if os.path.exists(plain):
-        return plain
-    return gz
+    """Return the raw input file for a sample (FASTQ, FASTQ.GZ, or BAM path)."""
+    return _search_input_file(wc.sample)
+
+
+def raw_fastq_or_converted(wc):
+    """Return a FASTQ.GZ path regardless of original input format.
+
+    If the original input is a .bam file the BAM-conversion rule produces
+    outputs/{sample}/reports/preprocessing/{sample}.input.fastq.gz which is
+    returned here; otherwise the raw FASTQ/FASTQ.GZ is returned directly.
+    """
+    found = _search_input_file(wc.sample)
+    if found.endswith(".bam"):
+        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.input.fastq.gz"
+    return found
+
 
 def downstream_reads(wc):
     if PREPROCESSING_ENABLED:
         return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}-preprocessed.fastq.gz"
-    return raw_fastq(wc)
+    return raw_fastq_or_converted(wc)
 
 def profile_stage_done(wc):
     if RUN_PROFILE and RUN_ASSEMBLY and SERIAL_PROFILE_THEN_ASSEMBLY:

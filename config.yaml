@@ -34,11 +34,12 @@ run:
 # 2. Read preprocessing
 # =============================================================================
 preprocessing:
-  # Enable or disable preprocessing of raw reads.
-  # If false, the pipeline uses the reads in paths.raw_dir directly.
-  # If true, host removal, filtering and QC steps can be applied before
-  # downstream processes.
-  enabled: false
+  # Preprocessing is always performed by default.
+  # Set skip: true or pass --skip-preprocessing to the run wrapper to disable.
+  skip: false
+
+  # Filtering method: "chopper" (default) or "filtlong"
+  filtering_method: "chopper"
 
 
 # =============================================================================
@@ -53,11 +54,13 @@ samples:
 # 4. Input and reference paths
 # =============================================================================
 paths:
-  # Directory containing the raw input FASTQ files.
+  # Optional: directory containing the raw input FASTQ/BAM files.
+  # If omitted the pipeline auto-detects supported files in the current directory.
   raw_dir: "data/raw"
 
-  # Host reference genome used for host read removal when preprocessing is enabled.
-  host_ref: "data/host/host.fa"
+  # Host reference genome used for optional host read removal during preprocessing.
+  # Leave empty ("") to skip host removal entirely.
+  host_ref: ""
 
   # Optional lambda phage reference used for additional read filtering if needed.
   lambda_ref: ""

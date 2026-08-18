@@ -44,7 +44,9 @@ THREAD_KEYS = [
 ]
 
 DEFAULTS = {
-    "preprocessing_enabled": False,
+    "preprocessing_enabled": True,
+    "preprocessing_skip": False,
+    "filtering_method": "chopper",
     "lambda_ref": "",
     "chopper": {"min_length": 500, "quality_threshold": 10},
     "filtlong": {"min_length": 500, "keep_percent": 90},
@@ -130,7 +132,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description=f"{WORKFLOW} pipeline")
     parser.add_argument("-v", "--version", action="version", version=f"{WORKFLOW} {VERSION}")
-    parser.add_argument("-i", "--input", help="Path to directory containing raw FASTQ files")
+    parser.add_argument("-i", "--input", help="Path to directory containing raw FASTQ files (or auto-detect in working directory)")
     parser.add_argument(
         "-c",
         "--config",
@@ -144,8 +146,19 @@ def parse_args():
         default=None,
         help="Comma-separated sample names (default: derived from --input directory)",
     )
-    parser.add_argument("--host-ref", default="", help="Host reference FASTA (for preprocessing)")
-    parser.add_argument("--preprocessing", action="store_true", help="Enable preprocessing")
+    parser.add_argument("--host-ref", default="", help="Host reference FASTA (for optional host read removal during preprocessing)")
+    parser.add_argument(
+        "--skip-preprocessing",
+        action="store_true",
+        help="Skip all preprocessing steps (host removal, filtering, QC). "
+             "By default preprocessing is always performed.",
+    )
+    parser.add_argument(
+        "--filtering-method",
+        default="chopper",
+        choices=["chopper", "filtlong"],
+        help="Filtering method to use during preprocessing (default: chopper)",
+    )
     parser.add_argument("-t", "--threads", type=int, default=8, help="Number of threads per tool")
     parser.add_argument("-j", "--jobs", type=int, default=1, help="Number of parallel jobs")
     parser.add_argument("-d", "--dryrun", action="store_true", help="Dry run")
@@ -178,11 +191,11 @@ def derive_samples(input_dir):
 
     sample_names = set()
     for filename in sorted(os.listdir(input_dir)):
-        if not filename.endswith((".fastq", ".fastq.gz", ".fq", ".fq.gz")):
+        if not filename.endswith((".fastq", ".fastq.gz", ".fq", ".fq.gz", ".bam")):
             continue
 
         sample = filename
-        for extension in [".fastq.gz", ".fq.gz", ".fastq", ".fq"]:
+        for extension in [".fastq.gz", ".fq.gz", ".fastq", ".fq", ".bam"]:
             if sample.endswith(extension):
                 sample = sample[: -len(extension)]
                 break
@@ -306,15 +319,19 @@ def write_required_files(run_script_dir, args, job_id):
         if key in config:
             config[key] = absolutize_from_pipeline_root(config[key], run_script_dir)
 
-    config["preprocessing_enabled"] = args.preprocessing
-    config["raw_dir"] = args.input
+    config["preprocessing_enabled"] = not getattr(args, "skip_preprocessing", False)
+    config["preprocessing_skip"] = getattr(args, "skip_preprocessing", False)
+    config["filtering_method"] = getattr(args, "filtering_method", "chopper")
+    config["raw_dir"] = args.input or ""
     config["threads"] = build_threads(args.threads)
     config["log_dir"] = os.path.join(os.getcwd(), "cluster-logs")
 
     if args.samples:
         config["samples"] = [sample.strip() for sample in args.samples.split(",") if sample.strip()]
-    else:
+    elif args.input:
         config["samples"] = derive_samples(args.input)
+    else:
+        config["samples"] = derive_samples(".")
 
     if not config["samples"]:
         sys.exit(
@@ -386,7 +403,7 @@ def write_required_files(run_script_dir, args, job_id):
 
 
 def check_path_existance(args):
-    if not os.path.isdir(args.input):
+    if args.input and not os.path.isdir(args.input):
         sys.exit(f"[{WORKFLOW}] Error: Input directory does not exist: {args.input}")
     if args.host_ref and not os.path.isfile(args.host_ref):
         sys.exit(f"[{WORKFLOW}] Error: Host reference does not exist: {args.host_ref}")
@@ -463,9 +480,15 @@ def run_pipeline(args):
 
 
 def main(args):
-    if not args.input:
-        sys.exit(f"[{WORKFLOW}] Error: Missing required argument -i/--input")
-
+    if not args.input and not args.samples:
+        # Try auto-detecting samples from current working directory
+        auto_samples = derive_samples(".")
+        if not auto_samples:
+            sys.exit(
+                f"[{WORKFLOW}] Error: No input directory specified (-i/--input) and no "
+                "FASTQ/BAM files found in the current directory. "
+                "Use -i to specify an input directory or -s to specify sample names."
+            )
     check_path_existance(args)
     run_pipeline(args)
 
