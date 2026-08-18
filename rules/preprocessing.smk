@@ -18,7 +18,7 @@ rule host_removal:
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/preprocessing
-        scripts/host_removal_mm2.sh \
+        {SCRIPTS_DIR}/host_removal_mm2.sh \
             -r {input.host_ref} \
             -i {input.reads} \
             -o {params.out_prefix} \
