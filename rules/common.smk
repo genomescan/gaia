@@ -1,6 +1,7 @@
 import os
 
 SAMPLES = config["samples"]
+SCRIPTS_DIR = config.get("path_scripts", os.path.join(os.path.dirname(workflow.snakefile), "scripts"))
 RAW_DIR = config["paths"]["raw_dir"]
 HOST_REF = config["paths"]["host_ref"]
 LAMBDA_REF = config["paths"].get("lambda_ref", "")

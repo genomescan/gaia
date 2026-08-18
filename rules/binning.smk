@@ -216,7 +216,7 @@ if tools_count == 0:
     sys.stderr.write("ERROR: collect_all_bins requires at least one tool in binning.tools.\n")
     sys.exit(1)
 PY
-        python scripts/collect_all_bins.py \
+        python {SCRIPTS_DIR}/collect_all_bins.py \
           --sample {wildcards.sample} \
           --outdir {output.bins} \
           --manifest {output.manifest} \
@@ -237,7 +237,7 @@ rule metabat2_contig2bin:
         tsv="outputs/{sample}/reports/binning/normalized/metabat2.contig2bin.tsv"
     shell:
         r"""
-        python scripts/bins_to_contig2bin.py \
+        python {SCRIPTS_DIR}/bins_to_contig2bin.py \
           --bins {input.bins} \
           --output {output.tsv} \
           --tool metabat2
@@ -252,7 +252,7 @@ rule semibin2_contig2bin:
         tsv="outputs/{sample}/reports/binning/normalized/semibin2.contig2bin.tsv"
     shell:
         r"""
-        python scripts/bins_to_contig2bin.py \
+        python {SCRIPTS_DIR}/bins_to_contig2bin.py \
           --bins {input.bins} \
           --output {output.tsv} \
           --tool semibin2
@@ -267,7 +267,7 @@ rule comebin_contig2bin:
         tsv="outputs/{sample}/reports/binning/normalized/comebin.contig2bin.tsv"
     shell:
         r"""
-        python scripts/bins_to_contig2bin.py \
+        python {SCRIPTS_DIR}/bins_to_contig2bin.py \
           --bins {input.bins} \
           --output {output.tsv} \
           --tool comebin
