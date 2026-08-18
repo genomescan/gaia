@@ -26,6 +26,22 @@ RUN_ASSEMBLY = RUN_MODE in {"assembly_binning_only", "both"}
 
 PREPROCESSING_CFG = config.get("preprocessing", {})
 PREPROCESSING_ENABLED = PREPROCESSING_CFG.get("enabled", True)
+FILTERING_METHOD = PREPROCESSING_CFG.get("filtering_method", "filtlong")
+QC_TOOL = PREPROCESSING_CFG.get("qc_tool", "nanoplot")
+
+VALID_FILTERING_METHODS = {"chopper", "filtlong"}
+if FILTERING_METHOD not in VALID_FILTERING_METHODS:
+    raise ValueError(
+        f"Invalid preprocessing.filtering_method: {FILTERING_METHOD}. "
+        f"Choose one of: {', '.join(sorted(VALID_FILTERING_METHODS))}"
+    )
+
+VALID_QC_TOOLS = {"nanoplot", "nanoqc"}
+if QC_TOOL not in VALID_QC_TOOLS:
+    raise ValueError(
+        f"Invalid preprocessing.qc_tool: {QC_TOOL}. "
+        f"Choose one of: {', '.join(sorted(VALID_QC_TOOLS))}"
+    )
 
 def raw_fastq(wc):
     gz = os.path.join(RAW_DIR, f"{wc.sample}.fastq.gz")
@@ -38,7 +54,9 @@ def raw_fastq(wc):
 
 def downstream_reads(wc):
     if PREPROCESSING_ENABLED:
-        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}-preprocessed.fastq.gz"
+        if FILTERING_METHOD == "chopper":
+            return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.chopper.fastq.gz"
+        return f"outputs/{wc.sample}/reports/preprocessing/{wc.sample}.filtlong.fastq.gz"
     return raw_fastq(wc)
 
 def profile_stage_done(wc):

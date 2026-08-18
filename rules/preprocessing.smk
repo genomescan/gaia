@@ -60,7 +60,7 @@ rule filtlong:
     input:
         "outputs/{sample}/reports/preprocessing/{sample}.chopper.fastq.gz"
     output:
-        "outputs/{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz"
+        "outputs/{sample}/reports/preprocessing/{sample}.filtlong.fastq.gz"
     threads:
         P["threads"]["filtlong"]
     params:
