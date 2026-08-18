@@ -38,8 +38,14 @@ preprocessing:
   # Set skip: true or pass --skip-preprocessing to the run wrapper to disable.
   skip: false
 
-  # Filtering method: "chopper" (default) or "filtlong"
-  filtering_method: "chopper"
+  # Filtering method to apply after host removal.
+  # "chopper"  - quality + length filtering only
+  # "filtlong" - quality + length filtering followed by subsampling
+  filtering_method: "filtlong"
+
+  # QC tool to use for both raw and filtered read QC reports.
+  # "nanoplot" (default) or "nanoqc"
+  qc_tool: "nanoplot"
 
 
 # =============================================================================

@@ -1,4 +1,19 @@
 
+PIPELINE_DIR = os.path.dirname(workflow.snakefile)
+
+# -------------------------------------------------------------------------
+# Copy static versions manifest into the run directory
+# -------------------------------------------------------------------------
+rule copy_versions:
+    input:
+        os.path.join(PIPELINE_DIR, "metadata", "versions.json")
+    output:
+        "versions.json"
+    shell:
+        r"""
+        cp {input} {output}
+        """
+
 # -------------------------------------------------------------------------
 # Collect tool versions → versions.json in pipeline run directory
 # -------------------------------------------------------------------------

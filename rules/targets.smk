@@ -5,19 +5,33 @@ rule all:
     default_target: True
     input:
         # -----------------------------------------------------------------
-        # Tool versions (always collected)
+        # Versions manifest
         # -----------------------------------------------------------------
         "versions.json",
 
         # -----------------------------------------------------------------
         # Raw QC
         # -----------------------------------------------------------------
-        expand("outputs/{sample}/reports/QC/{sample}_RAW_NanoPlot-report.html", sample=SAMPLES),
-        expand("outputs/{sample}/reports/QC/{sample}_RAW_nanoQC.html", sample=SAMPLES),
+        *(
+            expand("outputs/{sample}/reports/QC/raw/{sample}_NanoPlot-report.html", sample=SAMPLES)
+            if QC_TOOL == "nanoplot" else []
+        ),
+        *(
+            expand("outputs/{sample}/reports/QC/raw/{sample}_nanoQC.html", sample=SAMPLES)
+            if QC_TOOL == "nanoqc" else []
+        ),
 
         # -----------------------------------------------------------------
         # Preprocessing final
         # -----------------------------------------------------------------
+        *(
+            expand(
+                "outputs/{sample}/reports/preprocessing/{sample}."
+                + FILTERING_METHOD + ".fastq.gz",
+                sample=SAMPLES
+            )
+            if PREPROCESSING_ENABLED else []
+        ),
         *(
             expand("outputs/{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz", sample=SAMPLES)
             if PREPROCESSING_ENABLED else []
@@ -35,12 +49,12 @@ rule all:
         # Filtered QC
         # -----------------------------------------------------------------
         *(
-            expand("outputs/{sample}/reports/QC/{sample}_NanoPlot-report.html", sample=SAMPLES)
-            if PREPROCESSING_ENABLED else []
+            expand("outputs/{sample}/reports/QC/filtered/{sample}_NanoPlot-report.html", sample=SAMPLES)
+            if PREPROCESSING_ENABLED and QC_TOOL == "nanoplot" else []
         ),
         *(
-            expand("outputs/{sample}/reports/QC/{sample}_nanoQC.html", sample=SAMPLES)
-            if PREPROCESSING_ENABLED else []
+            expand("outputs/{sample}/reports/QC/filtered/{sample}_nanoQC.html", sample=SAMPLES)
+            if PREPROCESSING_ENABLED and QC_TOOL == "nanoqc" else []
         ),
 
         # -----------------------------------------------------------------

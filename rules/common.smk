@@ -1,16 +1,11 @@
 import os
 
+PIPELINE_DIR = os.path.dirname(workflow.snakefile)
+
 SAMPLES = config["samples"]
-SCRIPTS_DIR = config.get("path_scripts")
-if not SCRIPTS_DIR:
-    raise ValueError(
-        "config.yml is missing required key 'path_scripts'. "
-        "Re-run the Gaia 'run' wrapper to regenerate config.yml with the pipeline scripts path."
-    )
+SCRIPTS_DIR = config.get("path_scripts") or os.path.join(PIPELINE_DIR, "scripts")
 if not os.path.isabs(SCRIPTS_DIR):
-    raise ValueError(
-        f"config.yml key 'path_scripts' must be an absolute path, got: {SCRIPTS_DIR}"
-    )
+    SCRIPTS_DIR = os.path.abspath(os.path.join(PIPELINE_DIR, SCRIPTS_DIR))
 RAW_DIR = config["paths"].get("raw_dir", "")
 HOST_REF = config["paths"].get("host_ref", "")
 LAMBDA_REF = config["paths"].get("lambda_ref", "")
@@ -35,12 +30,26 @@ RUN_PROFILE = RUN_MODE in {"profiling_only", "both"}
 RUN_ASSEMBLY = RUN_MODE in {"assembly_binning_only", "both"}
 
 PREPROCESSING_CFG = config.get("preprocessing", {})
-# Preprocessing is always enabled by default; can be skipped via --skip-preprocessing in run wrapper
-PREPROCESSING_ENABLED = not PREPROCESSING_CFG.get("skip", False)
-# Filtering method: "chopper" (default) or "filtlong"
+PREPROCESSING_ENABLED = PREPROCESSING_CFG.get(
+    "enabled", not PREPROCESSING_CFG.get("skip", False)
+)
 FILTERING_METHOD = PREPROCESSING_CFG.get("filtering_method", "chopper")
-# Host removal is conditional: only when a non-empty host_ref path is provided
+QC_TOOL = PREPROCESSING_CFG.get("qc_tool", "nanoplot")
 HOST_REMOVAL_ENABLED = bool(HOST_REF and HOST_REF.strip())
+
+VALID_FILTERING_METHODS = {"chopper", "filtlong"}
+if FILTERING_METHOD not in VALID_FILTERING_METHODS:
+    raise ValueError(
+        f"Invalid preprocessing.filtering_method: {FILTERING_METHOD}. "
+        f"Choose one of: {', '.join(sorted(VALID_FILTERING_METHODS))}"
+    )
+
+VALID_QC_TOOLS = {"nanoplot", "nanoqc"}
+if QC_TOOL not in VALID_QC_TOOLS:
+    raise ValueError(
+        f"Invalid preprocessing.qc_tool: {QC_TOOL}. "
+        f"Choose one of: {', '.join(sorted(VALID_QC_TOOLS))}"
+    )
 
 def _search_input_file(sample):
     """Search for a sample's input file in common locations.
@@ -61,7 +70,6 @@ def _search_input_file(sample):
                 return candidate
     # Fallback: return gz path in current dir (will fail loudly at runtime if missing)
     return f"{sample}.fastq.gz"
-
 
 def raw_fastq(wc):
     """Return the raw input file for a sample (FASTQ, FASTQ.GZ, or BAM path)."""
