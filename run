@@ -278,7 +278,7 @@ def write_required_files(run_script_dir, args, job_id):
         "created": now,
         "job_id": job_id,
         "cmdpath": run_script_dir,
-        "path_scripts": os.path.join(run_script_dir, "scripts"),
+        "path_scripts": os.path.abspath(os.path.join(run_script_dir, "scripts")),
         "output_dir": os.getcwd(),
     }
     config.update(DEFAULTS)
@@ -327,6 +327,7 @@ def write_required_files(run_script_dir, args, job_id):
         sys.exit(f"[{WORKFLOW}] Error: Config '{args.config}' must contain key 'snakefile'.")
 
     config.update(config_2)
+    config["path_scripts"] = os.path.abspath(os.path.join(run_script_dir, "scripts"))
 
     for key in [
         "host_ref",

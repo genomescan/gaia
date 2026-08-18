@@ -1,7 +1,16 @@
 import os
 
 SAMPLES = config["samples"]
-SCRIPTS_DIR = config.get("path_scripts", os.path.join(os.path.dirname(workflow.snakefile), "scripts"))
+SCRIPTS_DIR = config.get("path_scripts")
+if not SCRIPTS_DIR:
+    raise ValueError(
+        "config.yml is missing required key 'path_scripts'. "
+        "Re-run the Gaia 'run' wrapper to regenerate config.yml with the pipeline scripts path."
+    )
+if not os.path.isabs(SCRIPTS_DIR):
+    raise ValueError(
+        f"config.yml key 'path_scripts' must be an absolute path, got: {SCRIPTS_DIR}"
+    )
 RAW_DIR = config["paths"]["raw_dir"]
 HOST_REF = config["paths"]["host_ref"]
 LAMBDA_REF = config["paths"].get("lambda_ref", "")
