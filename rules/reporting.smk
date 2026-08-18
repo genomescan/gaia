@@ -17,7 +17,7 @@ rule parse_taxonomy_report:
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/final
-        python scripts/parse_taxonomy.py \
+        python {SCRIPTS_DIR}/parse_taxonomy.py \
           --kraken2-report "{input.kraken2_report}" \
           --centrifuger-report "{input.centrifuger_report}" \
           --top-n 10 \
@@ -52,7 +52,7 @@ rule render_report:
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/final
-        python scripts/render_report.py \
+        python {SCRIPTS_DIR}/render_report.py \
           --sample {wildcards.sample} \
           --run-mode {params.run_mode} \
           --taxonomy-json "{input.taxonomy_json}" \
@@ -85,7 +85,7 @@ rule report_branch2_genomes:
     shell:
         r"""
         mkdir -p outputs/{wildcards.sample}/reports/final
-        python scripts/merge_final_reports.py \
+        python {SCRIPTS_DIR}/merge_final_reports.py \
           --sample {wildcards.sample} \
           --prok-bins {input.prok_bins} \
           --checkm2 {input.checkm2} \
@@ -133,7 +133,7 @@ rule report_pipeline_summary:
         summary="outputs/{sample}/reports/final/{sample}.pipeline_summary.tsv"
     shell:
         r"""
-        python scripts/report_pipeline_summary.py \
+        python {SCRIPTS_DIR}/report_pipeline_summary.py \
           --sample {wildcards.sample} \
           --kraken2-report "{input.kraken2_report}" \
           --centrifuger-report "{input.centrifuger_report}" \
