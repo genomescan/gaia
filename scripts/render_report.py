@@ -27,7 +27,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 # Helpers
 # ---------------------------------------------------------------------------
 
-_TEMPLATES_DIR = Path(__file__).parent / "templates"
+_TEMPLATES_DIR = Path(__file__).parent.parent / "templates" / "report"
 
 
 def _exists_nonempty(path):
