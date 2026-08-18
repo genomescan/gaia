@@ -2,17 +2,17 @@ rule acr_refine:
     container:
         CONTAINERS["euk"]
     input:
-        bins_dir="outputs/{sample}/reports/binning/all_bins",
-        coverage="outputs/{sample}/reports/mapping_depth/{sample}.depth.txt",
-        bins_done="outputs/{sample}/reports/binning/all_bins/.done",
+        bins_dir="{sample}/reports/binning/all_bins",
+        coverage="{sample}/reports/mapping_depth/{sample}.depth.txt",
+        bins_done="{sample}/reports/binning/all_bins/.done",
         acr_db_dir=config["refinement"]["euk"]["acr_params"]["db_path"]
     output:
-        refined_dir=directory("outputs/{sample}/reports/refinement/euk/acr/refined_bins"),
-        done="outputs/{sample}/reports/refinement/euk/acr/.done"
+        refined_dir=directory("{sample}/reports/refinement/euk/acr/refined_bins"),
+        done="{sample}/reports/refinement/euk/acr/.done"
     threads:
         P["threads"].get("acr", 16)
     params:
-        outdir="outputs/{sample}/reports/refinement/euk/acr",
+        outdir="{sample}/reports/refinement/euk/acr",
         prefix=ACR_PREFIX,
         min_size=ACR_MIN_SIZE,
         bypass=ACR_BYPASS,
@@ -106,12 +106,12 @@ PY
 # -------------------------------------------------------------------------
 rule keep_euk_from_acr:
     input:
-        refined_dir="outputs/{sample}/reports/refinement/euk/acr/refined_bins",
-        acr_done="outputs/{sample}/reports/refinement/euk/acr/.done"
+        refined_dir="{sample}/reports/refinement/euk/acr/refined_bins",
+        acr_done="{sample}/reports/refinement/euk/acr/.done"
     output:
-        euk_dir=directory("outputs/{sample}/reports/refinement/euk/euk_bins"),
-        manifest="outputs/{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
-        done="outputs/{sample}/reports/refinement/euk/euk_bins/.done"
+        euk_dir=directory("{sample}/reports/refinement/euk/euk_bins"),
+        manifest="{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
+        done="{sample}/reports/refinement/euk/euk_bins/.done"
     shell:
         r"""
         rm -rf {output.euk_dir}
@@ -132,15 +132,15 @@ rule drep_euk_compare:
     container:
         CONTAINERS["euk"]
     input:
-        euk_done="outputs/{sample}/reports/refinement/euk/euk_bins/.done",
-        euk_dir="outputs/{sample}/reports/refinement/euk/euk_bins"
+        euk_done="{sample}/reports/refinement/euk/euk_bins/.done",
+        euk_dir="{sample}/reports/refinement/euk/euk_bins"
     output:
-        cluster_info="outputs/{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
-        done="outputs/{sample}/reports/refinement/euk/drep/.done"
+        cluster_info="{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
+        done="{sample}/reports/refinement/euk/drep/.done"
     threads:
         P["threads"].get("drep", 16)
     params:
-        outdir="outputs/{sample}/reports/refinement/euk/drep",
+        outdir="{sample}/reports/refinement/euk/drep",
         extra=DREP_EXTRA,
         drep_enabled=DREP_ENABLED
     shell:
@@ -208,15 +208,15 @@ rule eukcc_euk_candidates:
     container:
         CONTAINERS["euk"]
     input:
-        euk_done="outputs/{sample}/reports/refinement/euk/euk_bins/.done",
-        euk_dir="outputs/{sample}/reports/refinement/euk/euk_bins"
+        euk_done="{sample}/reports/refinement/euk/euk_bins/.done",
+        euk_dir="{sample}/reports/refinement/euk/euk_bins"
     output:
-        summary="outputs/{sample}/reports/refinement/euk/eukcc/eukcc.csv",
-        done="outputs/{sample}/reports/refinement/euk/eukcc/.done"
+        summary="{sample}/reports/refinement/euk/eukcc/eukcc.csv",
+        done="{sample}/reports/refinement/euk/eukcc/.done"
     threads:
         P["threads"].get("eukcc", 16)
     params:
-        outdir="outputs/{sample}/reports/refinement/euk/eukcc",
+        outdir="{sample}/reports/refinement/euk/eukcc",
         db=EUKCC_DB,
         extra=EUKCC_EXTRA,
         eukcc_enabled=EUKCC_ENABLED
@@ -277,16 +277,16 @@ PY
 # -------------------------------------------------------------------------
 rule select_best_euk_bins:
     input:
-        euk_dir="outputs/{sample}/reports/refinement/euk/euk_bins",
-        kept_manifest="outputs/{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
-        cluster_info="outputs/{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
-        drep_done="outputs/{sample}/reports/refinement/euk/drep/.done",
-        eukcc="outputs/{sample}/reports/refinement/euk/eukcc/eukcc.csv",
-        eukcc_done="outputs/{sample}/reports/refinement/euk/eukcc/.done"
+        euk_dir="{sample}/reports/refinement/euk/euk_bins",
+        kept_manifest="{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
+        cluster_info="{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
+        drep_done="{sample}/reports/refinement/euk/drep/.done",
+        eukcc="{sample}/reports/refinement/euk/eukcc/eukcc.csv",
+        eukcc_done="{sample}/reports/refinement/euk/eukcc/.done"
     output:
-        selected_dir=directory("outputs/{sample}/reports/refinement/euk/final_bins/selected_bins"),
-        selected_manifest="outputs/{sample}/reports/refinement/euk/final_bins/selected_bins.tsv",
-        done="outputs/{sample}/reports/refinement/euk/final_bins/.done"
+        selected_dir=directory("{sample}/reports/refinement/euk/final_bins/selected_bins"),
+        selected_manifest="{sample}/reports/refinement/euk/final_bins/selected_bins.tsv",
+        done="{sample}/reports/refinement/euk/final_bins/.done"
     shell:
         r"""
         rm -rf {output.selected_dir}
@@ -309,15 +309,15 @@ rule bat_classify:
     container:
         CONTAINERS["euk"]
     input:
-        final_done="outputs/{sample}/reports/refinement/euk/final_bins/.done",
-        bins_dir="outputs/{sample}/reports/refinement/euk/final_bins/selected_bins"
+        final_done="{sample}/reports/refinement/euk/final_bins/.done",
+        bins_dir="{sample}/reports/refinement/euk/final_bins/selected_bins"
     output:
-        classification="outputs/{sample}/reports/refinement/euk/bat/bin2classification.txt",
-        done="outputs/{sample}/reports/refinement/euk/bat/.done"
+        classification="{sample}/reports/refinement/euk/bat/bin2classification.txt",
+        done="{sample}/reports/refinement/euk/bat/.done"
     threads:
         P["threads"].get("bat", 24)
     params:
-        outdir="outputs/{sample}/reports/refinement/euk/bat",
+        outdir="{sample}/reports/refinement/euk/bat",
         db=BAT_DB,
         taxonomy=BAT_TAXONOMY,
         extra=BAT_EXTRA,

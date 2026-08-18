@@ -174,7 +174,7 @@ def main():
     ap.add_argument("--host-stats", default="",
                     help="JSON produced by parse_host_removal.py")
     ap.add_argument("--versions-json", default="",
-                    help="versions.json produced by collect_versions.py")
+                    help="versions.json copied from metadata by the run wrapper")
     ap.add_argument("--filtering-method", default="chopper",
                     choices=["chopper", "filtlong"])
     ap.add_argument("--preprocessing-enabled", default="True")
