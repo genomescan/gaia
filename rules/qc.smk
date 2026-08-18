@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------
-# Raw QC: NanoPlot + NanoQC
+# Raw QC
 # -------------------------------------------------------------------------
 rule nanoplot_raw:
     container:
@@ -7,18 +7,16 @@ rule nanoplot_raw:
     input:
         fastq=raw_fastq
     output:
-        html="outputs/{sample}/reports/QC/{sample}_RAW_NanoPlot-report.html"
+        html="outputs/{sample}/reports/QC/raw/{sample}_NanoPlot-report.html"
     threads:
         P["threads"]["nanoplot"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC
+        mkdir -p outputs/{wildcards.sample}/reports/QC/raw
         NanoPlot \
             --fastq {input.fastq} \
-            -o outputs/{wildcards.sample}/reports/QC \
-            --prefix {wildcards.sample}_RAW
-
-        mv outputs/{wildcards.sample}/reports/QC/{wildcards.sample}_RAWNanoPlot-report.html {output.html}
+            -o outputs/{wildcards.sample}/reports/QC/raw \
+            --prefix {wildcards.sample}_
         """
 
 
@@ -28,12 +26,12 @@ rule nanoqc_raw:
     input:
         fastq=raw_fastq
     output:
-        html="outputs/{sample}/reports/QC/{sample}_RAW_nanoQC.html"
+        html="outputs/{sample}/reports/QC/raw/{sample}_nanoQC.html"
     threads:
         P["threads"]["nanoqc"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC
+        mkdir -p outputs/{wildcards.sample}/reports/QC/raw
         tmpdir=$(mktemp -d)
 
         nanoQC \
@@ -46,7 +44,7 @@ rule nanoqc_raw:
 
 
 # -------------------------------------------------------------------------
-# Filtered (downstream) QC: NanoPlot + NanoQC
+# Filtered QC
 # -------------------------------------------------------------------------
 rule nanoplot_filtered:
     container:
@@ -54,18 +52,16 @@ rule nanoplot_filtered:
     input:
         fastq=downstream_reads
     output:
-        html="outputs/{sample}/reports/QC/{sample}_NanoPlot-report.html"
+        html="outputs/{sample}/reports/QC/filtered/{sample}_NanoPlot-report.html"
     threads:
         P["threads"]["nanoplot"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC
+        mkdir -p outputs/{wildcards.sample}/reports/QC/filtered
         NanoPlot \
             --fastq {input.fastq} \
-            -o outputs/{wildcards.sample}/reports/QC \
-            --prefix {wildcards.sample}
-
-        mv outputs/{wildcards.sample}/reports/QC/{wildcards.sample}NanoPlot-report.html {output.html}
+            -o outputs/{wildcards.sample}/reports/QC/filtered \
+            --prefix {wildcards.sample}_
         """
 
 
@@ -75,12 +71,12 @@ rule nanoqc_filtered:
     input:
         fastq=downstream_reads
     output:
-        html="outputs/{sample}/reports/QC/{sample}_nanoQC.html"
+        html="outputs/{sample}/reports/QC/filtered/{sample}_nanoQC.html"
     threads:
         P["threads"]["nanoqc"]
     shell:
         r"""
-        mkdir -p outputs/{wildcards.sample}/reports/QC
+        mkdir -p outputs/{wildcards.sample}/reports/QC/filtered
         tmpdir=$(mktemp -d)
 
         nanoQC \
