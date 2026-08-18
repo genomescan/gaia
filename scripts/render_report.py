@@ -4,17 +4,20 @@ render_report.py – generate a standalone HTML report for a gaia pipeline run.
 
 Combines:
   - Pipeline metadata (mode, sample, date)
+  - Preprocessing summary (filtering method, host removal stats, versions)
   - Taxonomy top-10 species per tool (bar chart via Chart.js CDN)
   - Assembly / genome-bin summary tables
   - Genome inventory table
+  - Embedded workflow diagram (_workflow_.png as base64)
 
 Inputs are all optional; sections are shown only when the relevant file
 exists and is non-empty.
 
 The HTML is rendered via a Jinja2 template located at
-``scripts/templates/report.html.j2`` (resolved relative to this script).
+``templates/report/report.html.j2`` (resolved relative to this script).
 """
 import argparse
+import base64
 import csv
 import json
 import os
@@ -58,13 +61,60 @@ def _read_json(path):
         return json.load(fh)
 
 
+def _encode_image_base64(path):
+    """Return base64-encoded data URI for an image, or empty string if not found."""
+    if not path or not os.path.exists(path):
+        return ""
+    ext = os.path.splitext(path)[1].lstrip(".").lower()
+    mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+            "svg": "image/svg+xml"}.get(ext, "image/png")
+    with open(path, "rb") as fh:
+        data = base64.b64encode(fh.read()).decode("ascii")
+    return f"data:{mime};base64,{data}"
+
+
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
 
-def render(sample, run_mode, taxonomy_json, genome_summary,
-           genome_inventory, pipeline_summary, output):
+def render(
+    sample,
+    run_mode,
+    taxonomy_json,
+    genome_summary,
+    genome_inventory,
+    pipeline_summary,
+    host_stats,
+    versions_json,
+    filtering_method,
+    preprocessing_enabled,
+    host_removal_enabled,
+    host_ref,
+    chopper_min_length,
+    chopper_quality,
+    filtlong_min_length,
+    filtlong_keep_percent,
+    workflow_png,
+    output,
+):
     tax = _read_json(taxonomy_json)
+    host_stats_data = _read_json(host_stats)
+    versions = _read_json(versions_json)
+
+    # Build host removal Plotly chart data
+    host_plot_data = None
+    if host_stats_data:
+        host_plot_data = {
+            "labels": ["Host reads", "Non-host reads"],
+            "values": [
+                host_stats_data.get("host_reads", 0),
+                host_stats_data.get("non_host_reads", 0),
+            ],
+            "percentages": [
+                host_stats_data.get("host_percentage", 0),
+                host_stats_data.get("non_host_percentage", 0),
+            ],
+        }
 
     context = {
         "sample": sample,
@@ -75,6 +125,22 @@ def render(sample, run_mode, taxonomy_json, genome_summary,
         "genome_summary": _read_table(genome_summary),
         "genome_inventory": _read_table(genome_inventory),
         "pipeline_summary": _read_table(pipeline_summary),
+        # Preprocessing info
+        "preprocessing_enabled": preprocessing_enabled,
+        "host_removal_enabled": host_removal_enabled,
+        "host_ref": host_ref,
+        "filtering_method": filtering_method,
+        "chopper_min_length": chopper_min_length,
+        "chopper_quality": chopper_quality,
+        "filtlong_min_length": filtlong_min_length,
+        "filtlong_keep_percent": filtlong_keep_percent,
+        # Host removal stats
+        "host_stats": host_stats_data,
+        "host_plot_data": json.dumps(host_plot_data) if host_plot_data else None,
+        # Versions
+        "versions": versions,
+        # Workflow diagram as base64
+        "workflow_image": _encode_image_base64(workflow_png),
     }
 
     env = Environment(
@@ -105,6 +171,21 @@ def main():
     ap.add_argument("--genome-summary", default="")
     ap.add_argument("--genome-inventory", default="")
     ap.add_argument("--pipeline-summary", default="")
+    ap.add_argument("--host-stats", default="",
+                    help="JSON produced by parse_host_removal.py")
+    ap.add_argument("--versions-json", default="",
+                    help="versions.json produced by collect_versions.py")
+    ap.add_argument("--filtering-method", default="chopper",
+                    choices=["chopper", "filtlong"])
+    ap.add_argument("--preprocessing-enabled", default="True")
+    ap.add_argument("--host-removal-enabled", default="False")
+    ap.add_argument("--host-ref", default="")
+    ap.add_argument("--chopper-min-length", default="500")
+    ap.add_argument("--chopper-quality", default="10")
+    ap.add_argument("--filtlong-min-length", default="500")
+    ap.add_argument("--filtlong-keep-percent", default="90")
+    ap.add_argument("--workflow-png", default="",
+                    help="Path to _workflow_.png for embedding as base64")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -115,6 +196,17 @@ def main():
         genome_summary=args.genome_summary,
         genome_inventory=args.genome_inventory,
         pipeline_summary=args.pipeline_summary,
+        host_stats=args.host_stats,
+        versions_json=args.versions_json,
+        filtering_method=args.filtering_method,
+        preprocessing_enabled=args.preprocessing_enabled.lower() not in ("false", "0", ""),
+        host_removal_enabled=args.host_removal_enabled.lower() not in ("false", "0", ""),
+        host_ref=args.host_ref,
+        chopper_min_length=args.chopper_min_length,
+        chopper_quality=args.chopper_quality,
+        filtlong_min_length=args.filtlong_min_length,
+        filtlong_keep_percent=args.filtlong_keep_percent,
+        workflow_png=args.workflow_png,
         output=args.output,
     )
     print(f"Report written to: {args.output}")

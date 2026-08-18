@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
           integrity="sha384-3hr+MFI1GBqiRkwfIiBlMH2wgFpKsVcBIi5FiLLnGBH25q/b1yx7sxkBNbJlBAC"
           crossorigin="anonymous"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" crossorigin="anonymous"></script>
   <style>
     body {
       font-family: Verdana, Geneva, sans-serif;
@@ -86,7 +87,142 @@
     </div>
   </div>
 
-  {# ── Taxonomy – top species ─────────────────────────────────────────── #}
+  {# ── Workflow diagram ──────────────────────────────────────────────── #}
+  {% if workflow_image %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-semibold">&#x1F5FA;&#xFE0F; Pipeline overview</div>
+    <div class="card-body text-center">
+      <img src="{{ workflow_image }}" alt="Pipeline workflow diagram" class="img-fluid rounded" style="max-width:100%;"/>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Preprocessing summary ─────────────────────────────────────────── #}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-semibold">&#x2699;&#xFE0F; Preprocessing</div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Preprocessing</dt>
+        <dd class="col-sm-9">
+          {% if preprocessing_enabled %}
+            <span class="badge" style="background:#00a7cf;">Enabled</span>
+          {% else %}
+            <span class="badge bg-secondary">Skipped</span>
+          {% endif %}
+        </dd>
+        {% if preprocessing_enabled %}
+        <dt class="col-sm-3">Filtering method</dt>
+        <dd class="col-sm-9"><code>{{ filtering_method }}</code></dd>
+        {% if filtering_method == "chopper" %}
+        <dt class="col-sm-3">Chopper min length</dt>
+        <dd class="col-sm-9">{{ chopper_min_length }} bp</dd>
+        <dt class="col-sm-3">Chopper quality</dt>
+        <dd class="col-sm-9">Q{{ chopper_quality }}</dd>
+        {% else %}
+        <dt class="col-sm-3">Filtlong min length</dt>
+        <dd class="col-sm-9">{{ filtlong_min_length }} bp</dd>
+        <dt class="col-sm-3">Filtlong keep percent</dt>
+        <dd class="col-sm-9">{{ filtlong_keep_percent }}%</dd>
+        {% endif %}
+        <dt class="col-sm-3">Host removal</dt>
+        <dd class="col-sm-9">
+          {% if host_removal_enabled %}
+            <span class="badge" style="background:#00a7cf;">Enabled</span>
+            {% if host_ref %}
+              &nbsp;<small class="text-muted">{{ host_ref }}</small>
+            {% endif %}
+          {% else %}
+            <span class="badge bg-secondary">Disabled (no host reference provided)</span>
+          {% endif %}
+        </dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  {# ── Host removal statistics ───────────────────────────────────────── #}
+  {% if host_stats and host_plot_data %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-semibold">&#x1F9EC; Host removal statistics</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <div id="host_removal_chart" style="height:300px;"></div>
+        </div>
+        <div class="col-md-6">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover align-middle">
+              <thead class="table-dark">
+                <tr><th>Read category</th><th>Count</th><th>Percentage</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Host</td>
+                  <td>{{ host_stats.host_reads | int }}</td>
+                  <td>{{ host_stats.host_percentage }}%</td>
+                </tr>
+                <tr>
+                  <td>Non-host</td>
+                  <td>{{ host_stats.non_host_reads | int }}</td>
+                  <td>{{ host_stats.non_host_percentage }}%</td>
+                </tr>
+                <tr class="fw-semibold">
+                  <td>Total</td>
+                  <td>{{ host_stats.total_reads | int }}</td>
+                  <td>100%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <script>
+      (function(){
+        var plotData = {{ host_plot_data | safe }};
+        var trace = {
+          labels: plotData.labels,
+          values: plotData.values,
+          type: 'pie',
+          hole: 0.4,
+          marker: {
+            colors: ['#111166', '#00a7cf']
+          },
+          textinfo: 'label+percent',
+          customdata: plotData.percentages,
+          hovertemplate: '%{label}: %{value:,} reads (%{customdata:.1f}%)<extra></extra>'
+        };
+        var layout = {
+          showlegend: true,
+          margin: {t:10, b:10, l:10, r:10},
+          height: 280
+        };
+        Plotly.newPlot('host_removal_chart', [trace], layout, {responsive: true, displayModeBar: false});
+      })();
+      </script>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Tool versions ─────────────────────────────────────────────────── #}
+  {% if versions %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-semibold">&#x1F527; Tool versions</div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped table-hover align-middle">
+          <thead class="table-dark"><tr><th>Tool</th><th>Version</th></tr></thead>
+          <tbody>
+            {% for tool, ver in versions.items() %}
+            <tr><td><code>{{ tool }}</code></td><td>{{ ver }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+
   {% if kraken2_species or centrifuger_species %}
   <div class="card mb-4 shadow-sm">
     <div class="card-header fw-semibold">&#x1F52C; Taxonomy &ndash; top species per classifier</div>
