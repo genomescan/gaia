@@ -131,5 +131,5 @@ rule finalize_preprocessed:
         "{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz"
     shell:
         r"""
-        cp {input.reads} {output}
+        ln -sf $(realpath {input.reads}) {output}
         """

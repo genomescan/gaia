@@ -1,4 +1,22 @@
 # -------------------------------------------------------------------------
+# Versions manifest at output root
+# Written by the run wrapper before Snakemake starts.
+# This rule serves as a fallback when Snakemake is called directly.
+# -------------------------------------------------------------------------
+_PIPELINE_ROOT = os.path.dirname(config.get("path_scripts", os.path.join(PIPELINE_DIR, "scripts")))
+
+rule write_versions_manifest:
+    output:
+        "versions.json"
+    params:
+        src=os.path.join(_PIPELINE_ROOT, "metadata", "versions.json")
+    shell:
+        r"""
+        cp {params.src} {output}
+        """
+
+
+# -------------------------------------------------------------------------
 # Parse taxonomy reports → JSON (top-N species per classifier)
 # -------------------------------------------------------------------------
 rule parse_taxonomy_report:
@@ -25,34 +43,35 @@ rule parse_taxonomy_report:
 
 
 # -------------------------------------------------------------------------
-# Render HTML report
+# Render HTML report (single run-level report for all samples)
 # -------------------------------------------------------------------------
-rule render_report:
+rule render_run_report:
     input:
-        taxonomy_json=lambda wc: (
-            f"{wc.sample}/reports/final/{wc.sample}.taxonomy_top10.json"
-            if TAXONOMY_ENABLED else []
-        ),
-        genome_summary=lambda wc: (
-            f"{wc.sample}/reports/final/{wc.sample}.genome_summary.tsv"
-            if RUN_ASSEMBLY else []
-        ),
-        genome_inventory=lambda wc: (
-            f"{wc.sample}/reports/final/{wc.sample}.genome_inventory.tsv"
-            if RUN_ASSEMBLY else []
-        ),
-        pipeline_summary=lambda wc: (
-            f"{wc.sample}/reports/final/{wc.sample}.pipeline_summary.tsv"
-            if RUN_PROFILE and RUN_ASSEMBLY else []
-        ),
-        host_stats=lambda wc: (
-            f"{wc.sample}/reports/preprocessing/{wc.sample}.host_removal_stats.json"
-            if HOST_REMOVAL_ENABLED else []
-        ),
-        versions_json="{sample}/reports/versions.json"
+        taxonomy_jsons=expand(
+            "{sample}/reports/final/{sample}.taxonomy_top10.json",
+            sample=SAMPLES
+        ) if TAXONOMY_ENABLED else [],
+        genome_summaries=expand(
+            "{sample}/reports/final/{sample}.genome_summary.tsv",
+            sample=SAMPLES
+        ) if RUN_ASSEMBLY else [],
+        genome_inventories=expand(
+            "{sample}/reports/final/{sample}.genome_inventory.tsv",
+            sample=SAMPLES
+        ) if RUN_ASSEMBLY else [],
+        pipeline_summaries=expand(
+            "{sample}/reports/final/{sample}.pipeline_summary.tsv",
+            sample=SAMPLES
+        ) if RUN_PROFILE and RUN_ASSEMBLY else [],
+        host_stats=expand(
+            "{sample}/reports/preprocessing/{sample}.host_removal_stats.json",
+            sample=SAMPLES
+        ) if HOST_REMOVAL_ENABLED else [],
+        versions_json="versions.json"
     output:
-        html="{sample}/reports/report.html"
+        html="report.html"
     params:
+        samples=",".join(SAMPLES),
         run_mode=RUN_MODE,
         filtering_method=FILTERING_METHOD,
         preprocessing_enabled=PREPROCESSING_ENABLED,
@@ -62,20 +81,19 @@ rule render_report:
         chopper_quality=P["chopper"]["quality_threshold"],
         filtlong_min_length=P["filtlong"]["min_length"],
         filtlong_keep_percent=P["filtlong"]["keep_percent"],
-        workflow_png=lambda wc: os.path.join(
-            config.get("cmdpath", "."), "_workflow_.png"
+        workflow_png=os.path.join(
+            os.path.dirname(config.get("path_scripts", "scripts")), "_workflow_.png"
         )
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports
         python {SCRIPTS_DIR}/render_report.py \
-          --sample {wildcards.sample} \
+          --samples "{params.samples}" \
           --run-mode {params.run_mode} \
-          --taxonomy-json "{input.taxonomy_json}" \
-          --genome-summary "{input.genome_summary}" \
-          --genome-inventory "{input.genome_inventory}" \
-          --pipeline-summary "{input.pipeline_summary}" \
-          --host-stats "{input.host_stats}" \
+          --taxonomy-jsons "{input.taxonomy_jsons}" \
+          --genome-summaries "{input.genome_summaries}" \
+          --genome-inventories "{input.genome_inventories}" \
+          --pipeline-summaries "{input.pipeline_summaries}" \
+          --host-stats-jsons "{input.host_stats}" \
           --versions-json "{input.versions_json}" \
           --filtering-method "{params.filtering_method}" \
           --preprocessing-enabled "{params.preprocessing_enabled}" \

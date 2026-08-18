@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Gaia report – {{ sample }}</title>
+  <title>Gaia run report</title>
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
@@ -20,8 +20,10 @@
     .report-title { color: var(--gs-dark); font-weight: 700; }
     .card { border: 0; box-shadow: 0 .125rem .5rem rgba(0,0,0,.08); }
     .card-header { background: var(--gs-primary); color: #fff; font-weight: 600; }
+    .card-header-secondary { background: var(--gs-dark); color: #fff; font-weight: 600; }
     .meta-label { color: #6c757d; font-size: .9rem; }
-    .plot { width: 100%; height: 320px; }
+    .plot { width: 100%; height: 300px; }
+    .sample-heading { color: var(--gs-dark); border-bottom: 2px solid var(--gs-primary); padding-bottom: .5rem; }
   </style>
 </head>
 <body>
@@ -29,7 +31,7 @@
   <div class="d-flex justify-content-between align-items-start mb-3 gap-3 flex-wrap">
     <div>
       <h1 class="h3 report-title mb-1">Gaia metagenomics report</h1>
-      <div class="text-muted">Sample <code>{{ sample }}</code></div>
+      <div class="text-muted">Samples: <code>{{ samples | join(", ") }}</code></div>
     </div>
     <div class="text-end">
       <div class="meta-label">Pipeline mode</div>
@@ -47,6 +49,27 @@
     </div>
   </div>
   {% endif %}
+
+  {% if versions %}
+  <div class="card mb-4">
+    <div class="card-header">Tool versions</div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+          <thead><tr><th>Tool</th><th>Version</th></tr></thead>
+          <tbody>
+          {% for tool, ver in versions.items() %}
+            <tr><td><code>{{ tool }}</code></td><td>{{ ver }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% for sd in samples_data %}
+  <h2 class="h4 sample-heading mt-4 mb-3">Sample: <code>{{ sd.sample }}</code></h2>
 
   <div class="card mb-4">
     <div class="card-header">Preprocessing</div>
@@ -69,18 +92,18 @@
     </div>
   </div>
 
-  {% if host_stats and host_plot_data %}
+  {% if sd.host_stats and sd.host_plot_data %}
   <div class="card mb-4">
     <div class="card-header">Host removal summary</div>
     <div class="card-body">
-      <div id="host-removal-plot" class="plot"></div>
+      <div id="host-removal-plot-{{ sd.sample }}" class="plot"></div>
       <div class="table-responsive mt-3">
         <table class="table table-sm table-striped align-middle">
           <thead><tr><th>Read category</th><th>Count</th><th>Percentage</th></tr></thead>
           <tbody>
-            <tr><td>Host</td><td>{{ host_stats.host_reads | int }}</td><td>{{ host_stats.host_percentage }}%</td></tr>
-            <tr><td>Non-host</td><td>{{ host_stats.non_host_reads | int }}</td><td>{{ host_stats.non_host_percentage }}%</td></tr>
-            <tr class="fw-semibold"><td>Total</td><td>{{ host_stats.total_reads | int }}</td><td>100%</td></tr>
+            <tr><td>Host</td><td>{{ sd.host_stats.host_reads | int }}</td><td>{{ sd.host_stats.host_percentage }}%</td></tr>
+            <tr><td>Non-host</td><td>{{ sd.host_stats.non_host_reads | int }}</td><td>{{ sd.host_stats.non_host_percentage }}%</td></tr>
+            <tr class="fw-semibold"><td>Total</td><td>{{ sd.host_stats.total_reads | int }}</td><td>100%</td></tr>
           </tbody>
         </table>
       </div>
@@ -88,117 +111,129 @@
   </div>
   {% endif %}
 
-  {% if versions %}
+  {% if sd.kraken2_species or sd.centrifuger_species %}
   <div class="card mb-4">
-    <div class="card-header">Tool versions (from metadata/versions.json)</div>
+    <div class="card-header">Taxonomy highlights</div>
     <div class="card-body">
-      <div class="table-responsive">
+      {% if sd.kraken2_species %}
+      <h5 class="h6 fw-semibold mt-2">Kraken2 top species</h5>
+      <div class="table-responsive mb-3">
         <table class="table table-sm table-striped align-middle">
-          <thead><tr><th>Tool</th><th>Version</th></tr></thead>
+          <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
           <tbody>
-          {% for tool, ver in versions.items() %}
-            <tr><td><code>{{ tool }}</code></td><td>{{ ver }}</td></tr>
+          {% for row in sd.kraken2_species %}
+            <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
+      <div id="kraken2-plot-{{ sd.sample }}" class="plot"></div>
+      {% endif %}
+
+      {% if sd.centrifuger_species %}
+      <h5 class="h6 fw-semibold mt-4">Centrifuger top species</h5>
+      <div class="table-responsive mb-3">
+        <table class="table table-sm table-striped align-middle">
+          <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
+          <tbody>
+          {% for row in sd.centrifuger_species %}
+            <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div id="centrifuger-plot-{{ sd.sample }}" class="plot"></div>
+      {% endif %}
     </div>
   </div>
   {% endif %}
 
-  {% if kraken2_species or centrifuger_species %}
-  <div class="card mb-4">
-    <div class="card-header">Taxonomy highlights</div>
-    <div class="card-body">
-      {% if kraken2_species %}
-      <h2 class="h6">Kraken2 top species</h2>
-      <div id="kraken2-plot" class="plot"></div>
-      {% endif %}
-      {% if centrifuger_species %}
-      <h2 class="h6 mt-4">Centrifuger top species</h2>
-      <div id="centrifuger-plot" class="plot"></div>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-
-  {% if genome_summary %}
+  {% if sd.genome_summary %}
   <div class="card mb-4">
     <div class="card-header">Genome summary</div>
     <div class="card-body">
       <div class="table-responsive">
         <table class="table table-sm table-striped align-middle">
-          <thead><tr>{% for col in genome_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in genome_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          <thead><tr>{% for col in sd.genome_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in sd.genome_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
         </table>
       </div>
     </div>
   </div>
   {% endif %}
 
-  {% if genome_inventory %}
+  {% if sd.genome_inventory %}
   <div class="card mb-4">
     <div class="card-header">Genome inventory</div>
     <div class="card-body">
       <div class="table-responsive">
         <table class="table table-sm table-striped align-middle">
-          <thead><tr>{% for col in genome_inventory[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in genome_inventory %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          <thead><tr>{% for col in sd.genome_inventory[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in sd.genome_inventory %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
         </table>
       </div>
     </div>
   </div>
   {% endif %}
 
-  {% if pipeline_summary %}
+  {% if sd.pipeline_summary %}
   <div class="card mb-4">
     <div class="card-header">Pipeline summary</div>
     <div class="card-body">
       <div class="table-responsive">
         <table class="table table-sm table-striped align-middle">
-          <thead><tr>{% for col in pipeline_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in pipeline_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          <thead><tr>{% for col in sd.pipeline_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in sd.pipeline_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
         </table>
       </div>
     </div>
   </div>
   {% endif %}
+
+  {% endfor %}
 </div>
 
 <script>
-  const hostPlotData = {{ host_plot_data | default('null') | safe }};
-  const kraken2Species = {{ kraken2_species | tojson }};
-  const centrifugerSpecies = {{ centrifuger_species | tojson }};
-
   function renderHorizontalBar(containerId, rows, barColor) {
     if (!rows || rows.length === 0) return;
+    var el = document.getElementById(containerId);
+    if (!el) return;
     Plotly.newPlot(containerId, [{
       type: 'bar',
       orientation: 'h',
-      x: rows.map(r => Number(r.reads || 0)),
-      y: rows.map(r => r.name),
+      x: rows.map(function(r) { return Number(r.reads || 0); }),
+      y: rows.map(function(r) { return r.name; }),
       marker: {color: barColor},
       hovertemplate: '%{y}<br>Reads: %{x:,}<extra></extra>'
     }], {
       margin: {l: 220, r: 20, t: 10, b: 40},
-      height: 320,
+      height: 300,
       xaxis: {title: 'Reads'}
     }, {responsive: true, displayModeBar: false});
   }
 
-  if (hostPlotData) {
-    Plotly.newPlot('host-removal-plot', [{
-      type: 'pie',
-      labels: hostPlotData.labels,
-      values: hostPlotData.values,
-      hole: 0.45,
-      marker: {colors: ['#111166', '#00a7cf']},
-      hovertemplate: '%{label}: %{value:,} (%{percent})<extra></extra>'
-    }], {margin: {l: 20, r: 20, t: 10, b: 10}}, {responsive: true, displayModeBar: false});
-  }
+  {% for sd in samples_data %}
+  (function() {
+    var sampleId = {{ sd.sample | tojson }};
+    var kraken2Species = {{ sd.kraken2_species | tojson }};
+    var centrifugerSpecies = {{ sd.centrifuger_species | tojson }};
+    var hostPlotData = {{ sd.host_plot_data | default('null') }};
 
-  renderHorizontalBar('kraken2-plot', kraken2Species, '#00a7cf');
-  renderHorizontalBar('centrifuger-plot', centrifugerSpecies, '#111166');
+    if (hostPlotData) {
+      Plotly.newPlot('host-removal-plot-' + sampleId, [{
+        type: 'pie',
+        labels: hostPlotData.labels,
+        values: hostPlotData.values,
+        hole: 0.45,
+        marker: {colors: ['#111166', '#00a7cf']},
+        hovertemplate: '%{label}: %{value:,} (%{percent})<extra></extra>'
+      }], {margin: {l: 20, r: 20, t: 10, b: 10}}, {responsive: true, displayModeBar: false});
+    }
+
+    renderHorizontalBar('kraken2-plot-' + sampleId, kraken2Species, '#00a7cf');
+    renderHorizontalBar('centrifuger-plot-' + sampleId, centrifugerSpecies, '#111166');
+  })();
+  {% endfor %}
 </script>
 </body>
 </html>

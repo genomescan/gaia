@@ -365,11 +365,8 @@ def write_required_files(run_script_dir, args, job_id):
     metadata_versions = os.path.join(run_script_dir, "metadata", "versions.json")
     if not os.path.isfile(metadata_versions):
         sys.exit(f"[{WORKFLOW}] Error: versions manifest not found: {metadata_versions}")
-    for sample in config["samples"]:
-        report_dir = os.path.join(os.getcwd(), sample, "reports")
-        os.makedirs(report_dir, exist_ok=True)
-        shutil.copyfile(metadata_versions, os.path.join(report_dir, "versions.json"))
-    print(f"[{WORKFLOW}] Info: Copied metadata/versions.json into each sample reports directory")
+    shutil.copyfile(metadata_versions, os.path.join(os.getcwd(), "versions.json"))
+    print(f"[{WORKFLOW}] Info: Copied metadata/versions.json to output root")
 
     templates_dir = os.path.join(run_script_dir, "templates")
     env = Environment(
