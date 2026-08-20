@@ -606,7 +606,7 @@
       <section class="section-card split">
         <div class="section-kicker">Taxonomy</div>
         <h3 class="section-title h5">Kraken2 abundance chart (Top 10)</h3>
-        <div id="kraken2-plot-{{ sd.sample }}" class="plot"></div>
+        <div id="kraken2-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
       </section>
       {% endif %}
 
@@ -629,10 +629,43 @@
       <section class="section-card split">
         <div class="section-kicker">Taxonomy</div>
         <h3 class="section-title h5">Centrifuger abundance chart (Top 10)</h3>
-        <div id="centrifuger-plot-{{ sd.sample }}" class="plot"></div>
+        <div id="centrifuger-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
       </section>
       {% endif %}
 
+      {% if sd.nanoplot_raw or sd.nanoplot_filtered %}
+      <section class="section-card">
+        <div class="section-kicker">Read quality</div>
+        <h3 class="section-title h5">NanoPlot metrics – raw vs filtered</h3>
+        <div class="table-responsive mb-3">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Metric</th><th>Raw</th><th>Filtered</th></tr></thead>
+            <tbody>
+            {% set metric_labels = [
+              ("number_of_reads",    "Number of reads"),
+              ("total_bases",        "Total bases"),
+              ("mean_read_length",   "Mean read length (bp)"),
+              ("median_read_length", "Median read length (bp)"),
+              ("read_length_n50",    "Read length N50 (bp)"),
+              ("mean_read_quality",  "Mean read quality"),
+              ("median_read_quality","Median read quality"),
+              ("active_channels",    "Active channels"),
+            ] %}
+            {% for key, label in metric_labels %}
+              {% if sd.nanoplot_raw.get(key) is not none or sd.nanoplot_filtered.get(key) is not none %}
+              <tr>
+                <td>{{ label }}</td>
+                <td>{{ sd.nanoplot_raw.get(key, "—") }}</td>
+                <td>{{ sd.nanoplot_filtered.get(key, "—") }}</td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div id="nanoplot-chart-{{ sd.sample }}" class="plot" style="min-height:350px;"></div>
+      </section>
+      {% endif %}
       {% if sd.genome_summary %}
       <section class="section-card">
         <div class="section-kicker">Genome reconstruction</div>
@@ -742,6 +775,56 @@
 
     renderHorizontalBar('kraken2-plot-' + sampleId, kraken2Species, '#19b6d4', 'Kraken2 abundance');
     renderHorizontalBar('centrifuger-plot-' + sampleId, centrifugerSpecies, '#10164f', 'Centrifuger abundance');
+
+    (function() {
+      var rawMetrics = {{ sd.nanoplot_raw | tojson }};
+      var filteredMetrics = {{ sd.nanoplot_filtered | tojson }};
+      var chartEl = document.getElementById('nanoplot-chart-' + sampleId);
+      if (!chartEl || (!Object.keys(rawMetrics).length && !Object.keys(filteredMetrics).length)) return;
+      var metricKeys = [
+        ['mean_read_length',   'Mean read length (bp)'],
+        ['median_read_length', 'Median read length (bp)'],
+        ['read_length_n50',    'N50 (bp)'],
+        ['mean_read_quality',  'Mean quality'],
+        ['median_read_quality','Median quality']
+      ];
+      var labels = [], rawVals = [], filtVals = [];
+      metricKeys.forEach(function(kl) {
+        var key = kl[0], label = kl[1];
+        if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
+          labels.push(label);
+          rawVals.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
+          filtVals.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
+        }
+      });
+      if (!labels.length) return;
+      Plotly.newPlot('nanoplot-chart-' + sampleId, [
+        {
+          name: 'Raw',
+          type: 'bar',
+          x: labels,
+          y: rawVals,
+          marker: {color: '#19b6d4'},
+          hovertemplate: '%{x}: %{y:,}<extra>Raw</extra>'
+        },
+        {
+          name: 'Filtered',
+          type: 'bar',
+          x: labels,
+          y: filtVals,
+          marker: {color: '#10164f'},
+          hovertemplate: '%{x}: %{y:,}<extra>Filtered</extra>'
+        }
+      ], Object.assign({}, plotTheme, {
+        barmode: 'group',
+        title: {text: 'NanoPlot: Raw vs Filtered read metrics', font: {size: 14, color: '#1d2840'}},
+        margin: {l: 70, r: 20, t: 40, b: 80},
+        xaxis: {tickangle: -20, automargin: true},
+        yaxis: {title: 'Value', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0'},
+        legend: {orientation: 'h', y: -0.25},
+        showlegend: true
+      }), {responsive: true, displayModeBar: false});
+    })();
   })();
   {% endfor %}
 </script>

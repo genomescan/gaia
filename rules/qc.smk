@@ -7,7 +7,8 @@ rule nanoplot_raw:
     input:
         fastq=raw_fastq
     output:
-        html=qc_path("Raw", "{sample}", "{sample}_NanoPlot-report.html")
+        html=qc_path("Raw", "{sample}", "{sample}_NanoPlot-report.html"),
+        stats=qc_path("Raw", "{sample}", "{sample}_NanoStats.txt")
     threads:
         P["threads"]["nanoplot"]
     shell:
@@ -52,7 +53,8 @@ rule nanoplot_filtered:
     input:
         fastq=downstream_reads
     output:
-        html=qc_path("Filtered", "{sample}", "{sample}_NanoPlot-report.html")
+        html=qc_path("Filtered", "{sample}", "{sample}_NanoPlot-report.html"),
+        stats=qc_path("Filtered", "{sample}", "{sample}_NanoStats.txt")
     threads:
         P["threads"]["nanoplot"]
     shell:

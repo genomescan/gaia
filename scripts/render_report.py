@@ -100,6 +100,7 @@ def render(
     samples,
     run_mode,
     taxonomy_jsons,
+    nanoplot_jsons,
     genome_summaries,
     genome_inventories,
     pipeline_summaries,
@@ -124,6 +125,7 @@ def render(
     for i, sample in enumerate(samples):
         tax = _read_json(taxonomy_jsons[i] if i < len(taxonomy_jsons) else "")
         host_stats_data = _read_json(host_stats_jsons[i] if i < len(host_stats_jsons) else "")
+        nanoplot_data = _read_json(nanoplot_jsons[i] if i < len(nanoplot_jsons) else "")
 
         host_plot_data = None
         if host_stats_data:
@@ -148,6 +150,8 @@ def render(
             "pipeline_summary": _read_table(pipeline_summaries[i] if i < len(pipeline_summaries) else ""),
             "host_stats": host_stats_data,
             "host_plot_data": host_plot_data,
+            "nanoplot_raw": nanoplot_data.get("raw", {}),
+            "nanoplot_filtered": nanoplot_data.get("filtered", {}),
         })
 
     context = {
@@ -199,6 +203,8 @@ def main():
                     choices=["profiling_only", "assembly_binning_only", "both"])
     ap.add_argument("--taxonomy-jsons", default="",
                     help="Space-separated JSON files produced by parse_taxonomy.py (one per sample, same order as --samples)")
+    ap.add_argument("--nanoplot-jsons", default="",
+                    help="Space-separated JSON files produced by parse_nanoplot_metrics.py (one per sample, same order as --samples)")
     ap.add_argument("--genome-summaries", default="")
     ap.add_argument("--genome-inventories", default="")
     ap.add_argument("--pipeline-summaries", default="")
@@ -228,6 +234,7 @@ def main():
         samples=samples,
         run_mode=args.run_mode,
         taxonomy_jsons=_split_paths(args.taxonomy_jsons),
+        nanoplot_jsons=_split_paths(args.nanoplot_jsons),
         genome_summaries=_split_paths(args.genome_summaries),
         genome_inventories=_split_paths(args.genome_inventories),
         pipeline_summaries=_split_paths(args.pipeline_summaries),
