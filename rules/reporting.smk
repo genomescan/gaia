@@ -17,6 +17,25 @@ rule write_versions_manifest:
 
 
 # -------------------------------------------------------------------------
+# Parse NanoPlot metrics → JSON (raw + filtered)
+# -------------------------------------------------------------------------
+rule parse_nanoplot_metrics:
+    input:
+        raw_stats=qc_path("Raw", "{sample}", "{sample}_NanoStats.txt"),
+        filtered_stats=qc_path("Filtered", "{sample}", "{sample}_NanoStats.txt")
+    output:
+        json=report_path("{sample}", "{sample}.nanoplot_metrics.json")
+    shell:
+        r"""
+        mkdir -p "$(dirname {output.json})"
+        python {SCRIPTS_DIR}/parse_nanoplot_metrics.py \
+          --raw-nanostats "{input.raw_stats}" \
+          --filtered-nanostats "{input.filtered_stats}" \
+          --output {output.json}
+        """
+
+
+# -------------------------------------------------------------------------
 # Parse taxonomy reports → JSON (top-N species per classifier)
 # -------------------------------------------------------------------------
 rule parse_taxonomy_report:
@@ -51,6 +70,10 @@ rule render_run_report:
             report_path("{sample}", "{sample}.taxonomy_top10.json"),
             sample=SAMPLES
         ) if TAXONOMY_ENABLED else [],
+        nanoplot_jsons=expand(
+            report_path("{sample}", "{sample}.nanoplot_metrics.json"),
+            sample=SAMPLES
+        ),
         genome_summaries=expand(
             report_path("{sample}", "{sample}.genome_summary.tsv"),
             sample=SAMPLES
@@ -94,6 +117,7 @@ rule render_run_report:
           --samples "{params.samples}" \
           --run-mode {params.run_mode} \
           --taxonomy-jsons "{input.taxonomy_jsons}" \
+          --nanoplot-jsons "{input.nanoplot_jsons}" \
           --genome-summaries "{input.genome_summaries}" \
           --genome-inventories "{input.genome_inventories}" \
           --pipeline-summaries "{input.pipeline_summaries}" \
