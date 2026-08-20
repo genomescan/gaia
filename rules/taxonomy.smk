@@ -7,8 +7,8 @@ rule kraken2_classify:
     input:
         reads=downstream_reads
     output:
-        out="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.output.txt",
-        report="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt"
+        out=taxonomy_path("Kraken2", "{sample}", "{sample}.kraken2.output.txt"),
+        report=taxonomy_path("Kraken2", "{sample}", "{sample}.kraken2.report.txt")
     threads:
         P["threads"].get("kraken2", 16)
     params:
@@ -22,7 +22,7 @@ rule kraken2_classify:
             exit 1
         fi
 
-        mkdir -p {wildcards.sample}/reports/taxonomy/kraken2
+        mkdir -p "$(dirname {output.out})"
         kraken2 \
           --db {params.db} \
           --threads {threads} \
@@ -40,9 +40,9 @@ rule centrifuger_classify:
         CONTAINERS["taxonomy"]
     input:
         reads=downstream_reads,
-	kraken_done=centrifuger_serial_dep
+        kraken_done=centrifuger_serial_dep
     output:
-        out="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.classification.tsv"
+        out=taxonomy_path("Centrifuger", "{sample}", "{sample}.centrifuger.classification.tsv")
     threads:
         P["threads"].get("centrifuger", 16)
     params:
@@ -56,7 +56,7 @@ rule centrifuger_classify:
             exit 1
         fi
 
-        mkdir -p {wildcards.sample}/reports/taxonomy/centrifuger
+        mkdir -p "$(dirname {output.out})"
         centrifuger \
           -x {params.db} \
           -u {input.reads} \
@@ -69,9 +69,9 @@ rule centrifuger_quant:
     container:
         CONTAINERS["taxonomy"]
     input:
-        classif="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.classification.tsv"
+        classif=taxonomy_path("Centrifuger", "{sample}", "{sample}.centrifuger.classification.tsv")
     output:
-        report="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv"
+        report=taxonomy_path("Centrifuger", "{sample}", "{sample}.centrifuger.report.tsv")
     threads:
         P["threads"].get("centrifuger_quant", 4)
     params:

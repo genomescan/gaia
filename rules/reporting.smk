@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------
-# Versions manifest at output root
+# Versions manifest in the report folder
 # Written by the run wrapper before Snakemake starts.
 # This rule serves as a fallback when Snakemake is called directly.
 # -------------------------------------------------------------------------
@@ -7,7 +7,7 @@ _PIPELINE_ROOT = os.path.dirname(config.get("path_scripts", os.path.join(PIPELIN
 
 rule write_versions_manifest:
     output:
-        "versions.json"
+        os.path.join("Reports", "versions.json")
     params:
         src=os.path.join(_PIPELINE_ROOT, "metadata", "versions.json")
     shell:
@@ -22,18 +22,18 @@ rule write_versions_manifest:
 rule parse_taxonomy_report:
     input:
         kraken2_report=lambda wc: (
-            f"{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
+            taxonomy_path("Kraken2", wc.sample, f"{wc.sample}.kraken2.report.txt")
             if TAXONOMY_ENABLED and "kraken2" in TAX_TOOLS else []
         ),
         centrifuger_report=lambda wc: (
-            f"{wc.sample}/reports/taxonomy/centrifuger/{wc.sample}.centrifuger.report.tsv"
+            taxonomy_path("Centrifuger", wc.sample, f"{wc.sample}.centrifuger.report.tsv")
             if TAXONOMY_ENABLED and "centrifuger" in TAX_TOOLS else []
         )
     output:
-        json="{sample}/reports/final/{sample}.taxonomy_top10.json"
+        json=report_path("{sample}", "{sample}.taxonomy_top10.json")
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/final
+        mkdir -p "$(dirname {output.json})"
         python {SCRIPTS_DIR}/parse_taxonomy.py \
           --kraken2-report "{input.kraken2_report}" \
           --centrifuger-report "{input.centrifuger_report}" \
@@ -48,28 +48,28 @@ rule parse_taxonomy_report:
 rule render_run_report:
     input:
         taxonomy_jsons=expand(
-            "{sample}/reports/final/{sample}.taxonomy_top10.json",
+            report_path("{sample}", "{sample}.taxonomy_top10.json"),
             sample=SAMPLES
         ) if TAXONOMY_ENABLED else [],
         genome_summaries=expand(
-            "{sample}/reports/final/{sample}.genome_summary.tsv",
+            report_path("{sample}", "{sample}.genome_summary.tsv"),
             sample=SAMPLES
         ) if RUN_ASSEMBLY else [],
         genome_inventories=expand(
-            "{sample}/reports/final/{sample}.genome_inventory.tsv",
+            report_path("{sample}", "{sample}.genome_inventory.tsv"),
             sample=SAMPLES
         ) if RUN_ASSEMBLY else [],
         pipeline_summaries=expand(
-            "{sample}/reports/final/{sample}.pipeline_summary.tsv",
+            report_path("{sample}", "{sample}.pipeline_summary.tsv"),
             sample=SAMPLES
         ) if RUN_PROFILE and RUN_ASSEMBLY else [],
         host_stats=expand(
-            "{sample}/reports/preprocessing/{sample}.host_removal_stats.json",
+            preprocessing_path("{sample}", "{sample}.host_removal_stats.json"),
             sample=SAMPLES
         ) if HOST_REMOVAL_ENABLED else [],
-        versions_json="versions.json"
+        versions_json=os.path.join("Reports", "versions.json")
     output:
-        html="report.html"
+        html=os.path.join("Reports", "report.html")
     params:
         samples=",".join(SAMPLES),
         run_mode=RUN_MODE,
@@ -112,24 +112,24 @@ rule render_run_report:
 # -------------------------------------------------------------------------
 rule report_branch2_genomes:
     input:
-        prok_bins="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_bins",
-        checkm2="{sample}/reports/refinement/prok/checkm2/quality_report.tsv",
-        gtdb_bac="{sample}/reports/refinement/prok/gtdbtk/gtdbtk.bac120.summary.tsv",
-        gtdb_ar="{sample}/reports/refinement/prok/gtdbtk/gtdbtk.ar53.summary.tsv",
-        dastool_map="{sample}/reports/refinement/prok/dastool/{sample}_DASTool_contig2bin.tsv",
-        euk_bins="{sample}/reports/refinement/euk/final_bins/selected_bins",
-        eukcc="{sample}/reports/refinement/euk/eukcc/eukcc.csv",
-        bat="{sample}/reports/refinement/euk/bat/bin2classification.txt",
-        drep_clusters="{sample}/reports/refinement/euk/drep/data_tables/Cdb.csv",
-        kept_manifest="{sample}/reports/refinement/euk/euk_bins/kept_bins.tsv",
-        selected_manifest="{sample}/reports/refinement/euk/final_bins/selected_bins.tsv"
+        prok_bins=refinement_path("Prokaryotic", "DASTool", "{sample}", "{sample}_DASTool_bins"),
+        checkm2=refinement_path("Prokaryotic", "CheckM2", "{sample}", "quality_report.tsv"),
+        gtdb_bac=refinement_path("Prokaryotic", "GTDBTk", "{sample}", "gtdbtk.bac120.summary.tsv"),
+        gtdb_ar=refinement_path("Prokaryotic", "GTDBTk", "{sample}", "gtdbtk.ar53.summary.tsv"),
+        dastool_map=refinement_path("Prokaryotic", "DASTool", "{sample}", "{sample}_DASTool_contig2bin.tsv"),
+        euk_bins=refinement_path("Eukaryotic", "FinalBins", "{sample}", "selected_bins"),
+        eukcc=refinement_path("Eukaryotic", "EukCC", "{sample}", "eukcc.csv"),
+        bat=refinement_path("Eukaryotic", "BAT", "{sample}", "bin2classification.txt"),
+        drep_clusters=refinement_path("Eukaryotic", "dRep", "{sample}", "data_tables", "Cdb.csv"),
+        kept_manifest=refinement_path("Eukaryotic", "EukBins", "{sample}", "kept_bins.tsv"),
+        selected_manifest=refinement_path("Eukaryotic", "FinalBins", "{sample}", "selected_bins.tsv")
     output:
-        inventory="{sample}/reports/final/{sample}.genome_inventory.tsv",
-        summary="{sample}/reports/final/{sample}.genome_summary.tsv",
-        trace="{sample}/reports/final/{sample}.bin_trace.tsv"
+        inventory=report_path("{sample}", "{sample}.genome_inventory.tsv"),
+        summary=report_path("{sample}", "{sample}.genome_summary.tsv"),
+        trace=report_path("{sample}", "{sample}.bin_trace.tsv")
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/final
+        mkdir -p "$(dirname {output.inventory})"
         python {SCRIPTS_DIR}/merge_final_reports.py \
           --sample {wildcards.sample} \
           --prok-bins {input.prok_bins} \
@@ -153,15 +153,15 @@ rule report_branch2_genomes:
 # -------------------------------------------------------------------------
 rule profile_stage_complete:
     input:
-        kraken2_out="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.output.txt" if "kraken2" in TAX_TOOLS else [],
-        kraken2_report="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt" if "kraken2" in TAX_TOOLS else [],
-        centrifuger_classif="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.classification.tsv" if "centrifuger" in TAX_TOOLS else [],
-        centrifuger_report="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv" if "centrifuger" in TAX_TOOLS else []
+        kraken2_out=taxonomy_path("Kraken2", "{sample}", "{sample}.kraken2.output.txt") if "kraken2" in TAX_TOOLS else [],
+        kraken2_report=taxonomy_path("Kraken2", "{sample}", "{sample}.kraken2.report.txt") if "kraken2" in TAX_TOOLS else [],
+        centrifuger_classif=taxonomy_path("Centrifuger", "{sample}", "{sample}.centrifuger.classification.tsv") if "centrifuger" in TAX_TOOLS else [],
+        centrifuger_report=taxonomy_path("Centrifuger", "{sample}", "{sample}.centrifuger.report.tsv") if "centrifuger" in TAX_TOOLS else []
     output:
-        done="{sample}/stages/profile/{sample}.done"
+        done=stage_path("Profile", "{sample}", "{sample}.done")
     shell:
         r"""
-        mkdir -p {wildcards.sample}/stages/profile
+        mkdir -p "$(dirname {output.done})"
         touch {output.done}
         """
 
@@ -170,12 +170,12 @@ rule profile_stage_complete:
 # -------------------------------------------------------------------------
 rule report_pipeline_summary:
     input:
-        kraken2_report="{sample}/reports/taxonomy/kraken2/{sample}.kraken2.report.txt" if "kraken2" in TAX_TOOLS else [],
-        centrifuger_report="{sample}/reports/taxonomy/centrifuger/{sample}.centrifuger.report.tsv" if "centrifuger" in TAX_TOOLS else [],
-        genome_summary="{sample}/reports/final/{sample}.genome_summary.tsv",
-        inventory="{sample}/reports/final/{sample}.genome_inventory.tsv"
+        kraken2_report=taxonomy_path("Kraken2", "{sample}", "{sample}.kraken2.report.txt") if "kraken2" in TAX_TOOLS else [],
+        centrifuger_report=taxonomy_path("Centrifuger", "{sample}", "{sample}.centrifuger.report.tsv") if "centrifuger" in TAX_TOOLS else [],
+        genome_summary=report_path("{sample}", "{sample}.genome_summary.tsv"),
+        inventory=report_path("{sample}", "{sample}.genome_inventory.tsv")
     output:
-        summary="{sample}/reports/final/{sample}.pipeline_summary.tsv"
+        summary=report_path("{sample}", "{sample}.pipeline_summary.tsv")
     shell:
         r"""
         python {SCRIPTS_DIR}/report_pipeline_summary.py \

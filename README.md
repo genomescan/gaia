@@ -127,7 +127,15 @@ lr_mg_pipeline_final/
 │       └── add_host.md
 ├── databases/
 │   └── add_dbs.md
-└── {sample}/reports/
+├── Alignments/
+├── Assembly/
+├── Binning/
+├── Preprocessing/
+├── QC/
+├── Refinement/
+├── Reports/
+├── Stages/
+└── Taxonomy/
 ```
 
 ## Requirements
@@ -214,37 +222,47 @@ The expected container paths are defined in the `containers` section of `config.
 
 ## Output structure
 
-All sample outputs are written under:
+Customer-facing outputs are grouped in top-level category folders:
 
 ```text
-{sample}/reports/
+Alignments/
+Assembly/
+Binning/
+Preprocessing/
+QC/
+Refinement/
+Reports/
+Taxonomy/
 ```
 Main output directories include:
 
 ```text
-{sample}/reports/QC/              Read quality control reports
-{sample}/reports/preprocessing/   Preprocessed reads, if enabled
-{sample}/reports/taxonomy/        Kraken2 and Centrifuger outputs
-{sample}/reports/assembly/        metaFlye assembly output
-{sample}/reports/mapping_depth/   Read mapping and contig depth files
-{sample}/reports/binning/         Binning outputs
-{sample}/reports/refinement/      Prokaryotic and eukaryotic refinement outputs
-{sample}/reports/final/           Final summary tables
+QC/Raw/{sample}/                         Raw read quality control reports
+QC/Filtered/{sample}/                    Post-filtering quality control reports
+Preprocessing/{sample}/                  Preprocessed reads and host-removal metrics
+Taxonomy/Kraken2/{sample}/               Kraken2 classification output
+Taxonomy/Centrifuger/{sample}/           Centrifuger classification and quantification
+Assembly/MetaFlye/{sample}/              metaFlye assembly output
+Assembly/MetaQUAST/{sample}/             MetaQUAST assembly QC
+Alignments/{sample}/                     Read alignments and contig depth files
+Binning/{tool}/{sample}/                 Binning outputs and normalized tables
+Refinement/{domain}/{tool}/{sample}/     Prokaryotic and eukaryotic refinement outputs
+Reports/{sample}/                        Final per-sample summary tables and taxonomy JSON
 ```
 
 The main Gaia HTML report is generated at:
 
 ```text
-{sample}/reports/report.html
+Reports/report.html
 ```
 
 ### Versions manifest handling
 
 - `metadata/versions.json` is the single source of truth for tool versions.
-- The `run` wrapper copies this file into each sample report directory as:
+- The `run` wrapper copies this file into the report folder as:
 
 ```text
-{sample}/reports/versions.json
+Reports/versions.json
 ```
 
 - The report renderer reads this copied `versions.json` and displays the versions table in `report.html`.

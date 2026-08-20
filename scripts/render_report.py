@@ -9,7 +9,7 @@ Combines:
   - Per-sample taxonomy top-10 species (bar chart + HTML table via Plotly)
   - Per-sample assembly / genome-bin summary tables
   - Per-sample genome inventory table
-  - Tool versions (from run-level versions.json in output root)
+  - Tool versions (from Reports/versions.json)
   - Embedded workflow diagram (_workflow_.png as base64)
 
 Inputs are all optional; sections are shown only when the relevant file
@@ -148,7 +148,7 @@ def render(
             "genome_inventory": _read_table(genome_inventories[i] if i < len(genome_inventories) else ""),
             "pipeline_summary": _read_table(pipeline_summaries[i] if i < len(pipeline_summaries) else ""),
             "host_stats": host_stats_data,
-            "host_plot_data": json.dumps(host_plot_data) if host_plot_data else None,
+            "host_plot_data": host_plot_data,
         })
 
     context = {
@@ -203,8 +203,8 @@ def main():
     ap.add_argument("--pipeline-summaries", default="")
     ap.add_argument("--host-stats-jsons", default="",
                     help="Space-separated host-removal stats JSON files (one per sample)")
-    ap.add_argument("--versions-json", default="versions.json",
-                    help="versions.json at output root written by the run wrapper")
+    ap.add_argument("--versions-json", default=os.path.join("Reports", "versions.json"),
+                    help="versions.json written by the run wrapper")
     ap.add_argument("--filtering-method", default="chopper",
                     choices=["chopper", "filtlong"])
     ap.add_argument("--preprocessing-enabled", default="True")
