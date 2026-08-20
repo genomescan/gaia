@@ -12,6 +12,50 @@ LAMBDA_REF = config["paths"].get("lambda_ref", "")
 CONTAINERS = config.get("containers", {})
 P = config["params"]
 
+
+def sample_output_path(category, sample, *parts):
+    return os.path.join(category, sample, *parts)
+
+
+def tool_output_path(category, tool, sample, *parts):
+    return os.path.join(category, tool, sample, *parts)
+
+
+def qc_path(stage, sample, filename):
+    return tool_output_path("QC", stage, sample, filename)
+
+
+def preprocessing_path(sample, *parts):
+    return sample_output_path("Preprocessing", sample, *parts)
+
+
+def taxonomy_path(tool, sample, *parts):
+    return tool_output_path("Taxonomy", tool, sample, *parts)
+
+
+def assembly_path(tool, sample, *parts):
+    return tool_output_path("Assembly", tool, sample, *parts)
+
+
+def alignment_path(sample, *parts):
+    return sample_output_path("Alignments", sample, *parts)
+
+
+def binning_path(tool, sample, *parts):
+    return tool_output_path("Binning", tool, sample, *parts)
+
+
+def refinement_path(domain, tool, sample, *parts):
+    return os.path.join("Refinement", domain, tool, sample, *parts)
+
+
+def report_path(sample, *parts):
+    return sample_output_path("Reports", sample, *parts)
+
+
+def stage_path(stage, sample, *parts):
+    return tool_output_path("Stages", stage, sample, *parts)
+
 # -------------------------------------------------------------------------
 # Run mode config
 # -------------------------------------------------------------------------
@@ -80,23 +124,23 @@ def raw_fastq_or_converted(wc):
     """Return a FASTQ.GZ path regardless of original input format.
 
     If the original input is a .bam file the BAM-conversion rule produces
-    {sample}/reports/preprocessing/{sample}.input.fastq.gz which is
+    Preprocessing/{sample}/{sample}.input.fastq.gz which is
     returned here; otherwise the raw FASTQ/FASTQ.GZ is returned directly.
     """
     found = _search_input_file(wc.sample)
     if found.endswith(".bam"):
-        return f"{wc.sample}/reports/preprocessing/{wc.sample}.input.fastq.gz"
+        return preprocessing_path(wc.sample, f"{wc.sample}.input.fastq.gz")
     return found
 
 
 def downstream_reads(wc):
     if PREPROCESSING_ENABLED:
-        return f"{wc.sample}/reports/preprocessing/{wc.sample}-preprocessed.fastq.gz"
+        return preprocessing_path(wc.sample, f"{wc.sample}-preprocessed.fastq.gz")
     return raw_fastq_or_converted(wc)
 
 def profile_stage_done(wc):
     if RUN_PROFILE and RUN_ASSEMBLY and SERIAL_PROFILE_THEN_ASSEMBLY:
-        return f"{wc.sample}/stages/profile/{wc.sample}.done"
+        return stage_path("Profile", wc.sample, f"{wc.sample}.done")
     return []
 
 # -------------------------------------------------------------------------
@@ -116,7 +160,7 @@ TAXONOMY_ENABLED = RUN_PROFILE and len(TAX_TOOLS) > 0
 
 def centrifuger_serial_dep(wc):
     if "kraken2" in TAX_TOOLS and "centrifuger" in TAX_TOOLS:
-        return f"{wc.sample}/reports/taxonomy/kraken2/{wc.sample}.kraken2.report.txt"
+        return taxonomy_path("Kraken2", wc.sample, f"{wc.sample}.kraken2.report.txt")
     return []
 
 # -------------------------------------------------------------------------
@@ -170,7 +214,7 @@ def enabled_dastool_tools():
 
 def dastool_inputs(wc):
     return [
-        f"{wc.sample}/reports/binning/normalized/{tool}.contig2bin.tsv"
+        binning_path("Normalized", wc.sample, f"{tool}.contig2bin.tsv")
         for tool in enabled_dastool_tools()
     ]
 

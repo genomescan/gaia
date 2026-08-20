@@ -5,11 +5,11 @@ rule map_reads_to_assembly:
     container:
         CONTAINERS["metabat2"]
     input:
-        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
+        assembly=assembly_path("MetaFlye", "{sample}", "assembly.fasta"),
         reads=downstream_reads
     output:
-        bam="{sample}/reports/mapping_depth/{sample}.vs_assembly.sorted.bam",
-        bai="{sample}/reports/mapping_depth/{sample}.vs_assembly.sorted.bam.bai"
+        bam=alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam"),
+        bai=alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam.bai")
     threads:
         P["threads"].get("minimap2", 24)
     params:
@@ -39,10 +39,10 @@ rule contig_depth:
     container:
         CONTAINERS["metabat2"]
     input:
-        bam="{sample}/reports/mapping_depth/{sample}.vs_assembly.sorted.bam",
-        bai="{sample}/reports/mapping_depth/{sample}.vs_assembly.sorted.bam.bai"
+        bam=alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam"),
+        bai=alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam.bai")
     output:
-        depth="{sample}/reports/mapping_depth/{sample}.depth.txt"
+        depth=alignment_path("{sample}", "{sample}.depth.txt")
     threads:
         P["threads"].get("depth", 8)
     params:

@@ -7,15 +7,15 @@ rule nanoplot_raw:
     input:
         fastq=raw_fastq
     output:
-        html="{sample}/reports/QC/raw/{sample}_NanoPlot-report.html"
+        html=qc_path("Raw", "{sample}", "{sample}_NanoPlot-report.html")
     threads:
         P["threads"]["nanoplot"]
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/QC/raw
+        mkdir -p "$(dirname {output.html})"
         NanoPlot \
             --fastq {input.fastq} \
-            -o {wildcards.sample}/reports/QC/raw \
+            -o "$(dirname {output.html})" \
             --prefix {wildcards.sample}_
         """
 
@@ -26,12 +26,12 @@ rule nanoqc_raw:
     input:
         fastq=raw_fastq
     output:
-        html="{sample}/reports/QC/raw/{sample}_nanoQC.html"
+        html=qc_path("Raw", "{sample}", "{sample}_nanoQC.html")
     threads:
         P["threads"]["nanoqc"]
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/QC/raw
+        mkdir -p "$(dirname {output.html})"
         tmpdir=$(mktemp -d)
 
         nanoQC \
@@ -52,15 +52,15 @@ rule nanoplot_filtered:
     input:
         fastq=downstream_reads
     output:
-        html="{sample}/reports/QC/filtered/{sample}_NanoPlot-report.html"
+        html=qc_path("Filtered", "{sample}", "{sample}_NanoPlot-report.html")
     threads:
         P["threads"]["nanoplot"]
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/QC/filtered
+        mkdir -p "$(dirname {output.html})"
         NanoPlot \
             --fastq {input.fastq} \
-            -o {wildcards.sample}/reports/QC/filtered \
+            -o "$(dirname {output.html})" \
             --prefix {wildcards.sample}_
         """
 
@@ -71,12 +71,12 @@ rule nanoqc_filtered:
     input:
         fastq=downstream_reads
     output:
-        html="{sample}/reports/QC/filtered/{sample}_nanoQC.html"
+        html=qc_path("Filtered", "{sample}", "{sample}_nanoQC.html")
     threads:
         P["threads"]["nanoqc"]
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/QC/filtered
+        mkdir -p "$(dirname {output.html})"
         tmpdir=$(mktemp -d)
 
         nanoQC \

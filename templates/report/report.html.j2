@@ -11,51 +11,422 @@
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" crossorigin="anonymous"></script>
   <style>
     :root {
-      --gs-primary: #00a7cf;
-      --gs-dark: #111166;
-      --gs-bg: #f5f7fb;
+      --nv-navy: #10164f;
+      --nv-navy-soft: #1a236f;
+      --nv-cyan: #19b6d4;
+      --nv-cyan-soft: #dff6fb;
+      --nv-bg: #f4f7fb;
+      --nv-card: #ffffff;
+      --nv-text: #1d2840;
+      --nv-muted: #67748b;
+      --nv-border: #d9e3f0;
+      --nv-shadow: 0 18px 45px rgba(16, 22, 79, 0.10);
+      --nv-radius: 22px;
     }
-    body { background: var(--gs-bg); font-family: Verdana, Geneva, sans-serif; }
-    .report-wrap { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
-    .report-title { color: var(--gs-dark); font-weight: 700; }
-    .card { border: 0; box-shadow: 0 .125rem .5rem rgba(0,0,0,.08); }
-    .card-header { background: var(--gs-primary); color: #fff; font-weight: 600; }
-    .card-header-secondary { background: var(--gs-dark); color: #fff; font-weight: 600; }
-    .meta-label { color: #6c757d; font-size: .9rem; }
-    .plot { width: 100%; height: 300px; }
-    .sample-heading { color: var(--gs-dark); border-bottom: 2px solid var(--gs-primary); padding-bottom: .5rem; }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #eef4fb 0%, var(--nv-bg) 180px);
+      color: var(--nv-text);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--nv-navy) 0%, var(--nv-navy-soft) 55%, #26339c 100%);
+      color: #fff;
+      border-radius: 28px;
+      padding: 28px 30px;
+      box-shadow: var(--nv-shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.20), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(25,182,212,0.22), transparent 30%);
+      pointer-events: none;
+    }
+
+    .hero-top,
+    .hero-stats,
+    .overview-grid,
+    .sample-header,
+    .metrics-grid,
+    .content-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero-top {
+      grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+      align-items: end;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-chip,
+    .tag,
+    .sample-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .brand-chip {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      letter-spacing: 0.02em;
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 3vw, 3rem);
+      font-weight: 700;
+    }
+
+    .hero p,
+    .hero code {
+      color: rgba(255,255,255,0.92);
+    }
+
+    .hero-summary {
+      max-width: 720px;
+      line-height: 1.5;
+      margin-bottom: 0;
+    }
+
+    .hero-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      position: relative;
+      z-index: 1;
+    }
+
+    .stat-card,
+    .panel,
+    .metric,
+    .section-card {
+      background: var(--nv-card);
+      border-radius: var(--nv-radius);
+      box-shadow: var(--nv-shadow);
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      padding: 16px 18px;
+      min-height: 98px;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.78);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .overview-grid {
+      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+      margin-top: 22px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 22px;
+      border: 1px solid var(--nv-border);
+    }
+
+    .panel-title,
+    .section-title {
+      margin: 0 0 12px;
+      color: var(--nv-navy);
+      font-weight: 700;
+    }
+
+    .panel-subtitle,
+    .muted {
+      color: var(--nv-muted);
+    }
+
+    .tag-list,
+    .sample-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tag,
+    .sample-tab {
+      background: var(--nv-cyan-soft);
+      color: var(--nv-navy);
+      border: 1px solid rgba(25,182,212,0.20);
+      padding: 8px 12px;
+      text-decoration: none;
+    }
+
+    .sample-tab {
+      background: #fff;
+      box-shadow: 0 10px 22px rgba(16, 22, 79, 0.08);
+    }
+
+    .workflow-card img {
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid var(--nv-border);
+      background: #fff;
+    }
+
+    .sample-nav {
+      margin: 26px 0 18px;
+    }
+
+    .sample-report {
+      margin-top: 28px;
+    }
+
+    .sample-header {
+      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .sample-banner {
+      background: linear-gradient(135deg, var(--nv-navy) 0%, #22308a 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 24px 26px;
+      box-shadow: var(--nv-shadow);
+    }
+
+    .sample-banner h2 {
+      margin: 0 0 8px;
+      font-size: 1.8rem;
+    }
+
+    .sample-banner code {
+      color: #fff;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 2px 8px;
+    }
+
+    .metrics-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metric {
+      padding: 16px 18px;
+      border: 1px solid var(--nv-border);
+    }
+
+    .metric .stat-label {
+      color: var(--nv-muted);
+    }
+
+    .metric .stat-value {
+      color: var(--nv-navy);
+      font-size: 1rem;
+    }
+
+    .content-grid {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      margin-top: 18px;
+    }
+
+    .section-card {
+      padding: 22px;
+      border: 1px solid var(--nv-border);
+      grid-column: span 12;
+    }
+
+    .section-card.split {
+      grid-column: span 6;
+    }
+
+    .section-kicker {
+      display: inline-block;
+      margin-bottom: 8px;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--nv-cyan);
+      font-weight: 700;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .meta-item {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f8fbff;
+      border: 1px solid var(--nv-border);
+    }
+
+    .meta-item strong {
+      display: block;
+      color: var(--nv-muted);
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .plot {
+      width: 100%;
+      min-height: 320px;
+    }
+
+    .table {
+      margin-bottom: 0;
+      --bs-table-bg: transparent;
+    }
+
+    .table thead th {
+      color: var(--nv-navy);
+      background: #f6fbff;
+      border-bottom-width: 1px;
+      font-size: 0.85rem;
+    }
+
+    .table td,
+    .table th {
+      vertical-align: middle;
+      border-color: var(--nv-border);
+    }
+
+    .empty-state {
+      padding: 18px;
+      border-radius: 18px;
+      background: #f8fbff;
+      color: var(--nv-muted);
+      border: 1px dashed var(--nv-border);
+    }
+
+    @media (max-width: 1080px) {
+      .hero-top,
+      .overview-grid,
+      .sample-header {
+        grid-template-columns: 1fr;
+      }
+
+      .section-card.split {
+        grid-column: span 12;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .page {
+        padding: 14px;
+      }
+
+      .hero,
+      .sample-banner,
+      .panel,
+      .section-card {
+        padding: 18px;
+      }
+
+      .hero-stats,
+      .metrics-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-<div class="report-wrap">
-  <div class="d-flex justify-content-between align-items-start mb-3 gap-3 flex-wrap">
-    <div>
-      <h1 class="h3 report-title mb-1">Gaia metagenomics report</h1>
-      <div class="text-muted">Samples: <code>{{ samples | join(", ") }}</code></div>
+<div class="page">
+  <header class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="brand-chip">Gaia &middot; NanoVario-inspired customer report</div>
+        <h1>Metagenomics run report</h1>
+        <p class="hero-summary">
+          A consolidated overview of preprocessing, host removal, taxonomic profiling, genome reconstruction,
+          and final per-sample summaries for <code>{{ samples | join(", ") }}</code>.
+        </p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-card">
+          <div class="stat-label">Run mode</div>
+          <div class="stat-value">{{ run_mode }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Generated</div>
+          <div class="stat-value">{{ generated_at }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Samples</div>
+          <div class="stat-value">{{ samples | length }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Filtering</div>
+          <div class="stat-value">{{ filtering_method if preprocessing_enabled else "Skipped" }}</div>
+        </div>
+      </div>
     </div>
-    <div class="text-end">
-      <div class="meta-label">Pipeline mode</div>
-      <div><strong>{{ run_mode }}</strong></div>
-      <div class="meta-label mt-2">Generated</div>
-      <div>{{ generated_at }}</div>
-    </div>
-  </div>
+  </header>
 
-  {% if workflow_image %}
-  <div class="card mb-4">
-    <div class="card-header">Pipeline overview</div>
-    <div class="card-body text-center">
-      <img src="{{ workflow_image }}" alt="Pipeline workflow" class="img-fluid rounded"/>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if versions %}
-  <div class="card mb-4">
-    <div class="card-header">Tool versions</div>
-    <div class="card-body">
+  <section class="overview-grid">
+    <div class="panel">
+      <h2 class="panel-title h5">Run configuration</h2>
+      <div class="tag-list mb-3">
+        <span class="tag">{{ "Preprocessing enabled" if preprocessing_enabled else "Preprocessing skipped" }}</span>
+        <span class="tag">{{ "Host removal enabled" if host_removal_enabled else "Host removal disabled" }}</span>
+        {% if host_ref %}
+        <span class="tag">Host reference configured</span>
+        {% endif %}
+      </div>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <strong>Filtering method</strong>
+          <span>{{ filtering_method if preprocessing_enabled else "Not applied" }}</span>
+        </div>
+        <div class="meta-item">
+          <strong>Quality thresholds</strong>
+          <span>
+            {% if filtering_method == "chopper" %}
+              Min length {{ chopper_min_length }} bp &middot; Q{{ chopper_quality }}
+            {% else %}
+              Min length {{ filtlong_min_length }} bp &middot; keep {{ filtlong_keep_percent }}%
+            {% endif %}
+          </span>
+        </div>
+        {% if host_ref %}
+        <div class="meta-item">
+          <strong>Host reference</strong>
+          <span><code>{{ host_ref }}</code></span>
+        </div>
+        {% endif %}
+      </div>
+      {% if versions %}
+      <h3 class="panel-title h6 mt-4">Tool versions</h3>
       <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
+        <table class="table table-sm align-middle">
           <thead><tr><th>Tool</th><th>Version</th></tr></thead>
           <tbody>
           {% for tool, ver in versions.items() %}
@@ -64,136 +435,221 @@
           </tbody>
         </table>
       </div>
+      {% endif %}
     </div>
-  </div>
-  {% endif %}
+
+    <div class="panel workflow-card">
+      <h2 class="panel-title h5">Pipeline overview</h2>
+      {% if workflow_image %}
+        <img src="{{ workflow_image }}" alt="Pipeline workflow"/>
+      {% else %}
+        <div class="empty-state">No workflow overview image was available for embedding.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="sample-nav">
+    <div class="sample-tabs">
+      {% for sd in samples_data %}
+      <a class="sample-tab" href="#sample-{{ loop.index }}">Sample {{ sd.sample }}</a>
+      {% endfor %}
+    </div>
+  </section>
 
   {% for sd in samples_data %}
-  <h2 class="h4 sample-heading mt-4 mb-3">Sample: <code>{{ sd.sample }}</code></h2>
-
-  <div class="card mb-4">
-    <div class="card-header">Preprocessing</div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6"><span class="meta-label">Preprocessing</span><div>{{ "Enabled" if preprocessing_enabled else "Skipped" }}</div></div>
-        <div class="col-md-6"><span class="meta-label">Host removal</span><div>{{ "Enabled" if host_removal_enabled else "Disabled" }}</div></div>
-        {% if preprocessing_enabled %}
-          <div class="col-md-6"><span class="meta-label">Filtering method</span><div>{{ filtering_method }}</div></div>
-          {% if filtering_method == "chopper" %}
-            <div class="col-md-6"><span class="meta-label">Chopper settings</span><div>Min length {{ chopper_min_length }} bp, quality Q{{ chopper_quality }}</div></div>
+  <article class="sample-report" id="sample-{{ loop.index }}">
+    <div class="sample-header">
+      <div class="sample-banner">
+        <h2>Sample <code>{{ sd.sample }}</code></h2>
+        <p class="mb-0">
+          {% set taxonomy_tools = [] %}
+          {% if sd.kraken2_species %}{% set _ = taxonomy_tools.append("Kraken2") %}{% endif %}
+          {% if sd.centrifuger_species %}{% set _ = taxonomy_tools.append("Centrifuger") %}{% endif %}
+          {% if taxonomy_tools %}
+            Taxonomy available from {{ taxonomy_tools | join(" and ") }}.
           {% else %}
-            <div class="col-md-6"><span class="meta-label">Filtlong settings</span><div>Min length {{ filtlong_min_length }} bp, keep {{ filtlong_keep_percent }}%</div></div>
+            No taxonomy summaries were generated for this sample.
           {% endif %}
-        {% endif %}
-        {% if host_ref %}
-          <div class="col-12"><span class="meta-label">Host reference</span><div><code>{{ host_ref }}</code></div></div>
-        {% endif %}
+        </p>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric">
+          <div class="stat-label">Host removal</div>
+          <div class="stat-value">
+            {% if sd.host_stats %}
+              {{ sd.host_stats.non_host_percentage }}% retained
+            {% else %}
+              Not reported
+            {% endif %}
+          </div>
+        </div>
+        <div class="metric">
+          <div class="stat-label">Taxonomy tables</div>
+          <div class="stat-value">
+            {{ (1 if sd.kraken2_species else 0) + (1 if sd.centrifuger_species else 0) }}
+          </div>
+        </div>
+        <div class="metric">
+          <div class="stat-label">Genome summary rows</div>
+          <div class="stat-value">{{ sd.genome_summary | length }}</div>
+        </div>
+        <div class="metric">
+          <div class="stat-label">Inventory rows</div>
+          <div class="stat-value">{{ sd.genome_inventory | length }}</div>
+        </div>
       </div>
     </div>
-  </div>
 
-  {% if sd.host_stats and sd.host_plot_data %}
-  <div class="card mb-4">
-    <div class="card-header">Host removal summary</div>
-    <div class="card-body">
-      <div id="host-removal-plot-{{ sd.sample }}" class="plot"></div>
-      <div class="table-responsive mt-3">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr><th>Read category</th><th>Count</th><th>Percentage</th></tr></thead>
-          <tbody>
-            <tr><td>Host</td><td>{{ sd.host_stats.host_reads | int }}</td><td>{{ sd.host_stats.host_percentage }}%</td></tr>
-            <tr><td>Non-host</td><td>{{ sd.host_stats.non_host_reads | int }}</td><td>{{ sd.host_stats.non_host_percentage }}%</td></tr>
-            <tr class="fw-semibold"><td>Total</td><td>{{ sd.host_stats.total_reads | int }}</td><td>100%</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% endif %}
+    <div class="content-grid">
+      <section class="section-card">
+        <div class="section-kicker">Preprocessing</div>
+        <h3 class="section-title h5">Read preparation settings</h3>
+        <div class="meta-grid">
+          <div class="meta-item">
+            <strong>Preprocessing</strong>
+            <span>{{ "Enabled" if preprocessing_enabled else "Skipped" }}</span>
+          </div>
+          <div class="meta-item">
+            <strong>Host removal</strong>
+            <span>{{ "Enabled" if host_removal_enabled else "Disabled" }}</span>
+          </div>
+          <div class="meta-item">
+            <strong>Filtering method</strong>
+            <span>{{ filtering_method if preprocessing_enabled else "Not applied" }}</span>
+          </div>
+          <div class="meta-item">
+            <strong>Thresholds</strong>
+            <span>
+              {% if filtering_method == "chopper" %}
+                Min length {{ chopper_min_length }} bp, quality Q{{ chopper_quality }}
+              {% else %}
+                Min length {{ filtlong_min_length }} bp, keep {{ filtlong_keep_percent }}%
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </section>
 
-  {% if sd.kraken2_species or sd.centrifuger_species %}
-  <div class="card mb-4">
-    <div class="card-header">Taxonomy highlights</div>
-    <div class="card-body">
+      {% if sd.host_stats and sd.host_plot_data %}
+      <section class="section-card split">
+        <div class="section-kicker">Host removal</div>
+        <h3 class="section-title h5">Read partitioning</h3>
+        <div id="host-removal-plot-{{ sd.sample }}" class="plot"></div>
+      </section>
+
+      <section class="section-card split">
+        <div class="section-kicker">Host removal</div>
+        <h3 class="section-title h5">Counts and percentages</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Read category</th><th>Count</th><th>Percentage</th></tr></thead>
+            <tbody>
+              <tr><td>Host</td><td>{{ sd.host_stats.host_reads | int }}</td><td>{{ sd.host_stats.host_percentage }}%</td></tr>
+              <tr><td>Non-host</td><td>{{ sd.host_stats.non_host_reads | int }}</td><td>{{ sd.host_stats.non_host_percentage }}%</td></tr>
+              <tr class="fw-semibold"><td>Total</td><td>{{ sd.host_stats.total_reads | int }}</td><td>100%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
       {% if sd.kraken2_species %}
-      <h5 class="h6 fw-semibold mt-2">Kraken2 top species</h5>
-      <div class="table-responsive mb-3">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
-          <tbody>
-          {% for row in sd.kraken2_species %}
-            <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div id="kraken2-plot-{{ sd.sample }}" class="plot"></div>
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">Kraken2 top species</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
+            <tbody>
+            {% for row in sd.kraken2_species %}
+              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">Kraken2 abundance chart</h3>
+        <div id="kraken2-plot-{{ sd.sample }}" class="plot"></div>
+      </section>
       {% endif %}
 
       {% if sd.centrifuger_species %}
-      <h5 class="h6 fw-semibold mt-4">Centrifuger top species</h5>
-      <div class="table-responsive mb-3">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
-          <tbody>
-          {% for row in sd.centrifuger_species %}
-            <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div id="centrifuger-plot-{{ sd.sample }}" class="plot"></div>
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">Centrifuger top species</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
+            <tbody>
+            {% for row in sd.centrifuger_species %}
+              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">Centrifuger abundance chart</h3>
+        <div id="centrifuger-plot-{{ sd.sample }}" class="plot"></div>
+      </section>
+      {% endif %}
+
+      {% if sd.genome_summary %}
+      <section class="section-card">
+        <div class="section-kicker">Genome reconstruction</div>
+        <h3 class="section-title h5">Genome summary</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr>{% for col in sd.genome_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for row in sd.genome_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if sd.genome_inventory %}
+      <section class="section-card">
+        <div class="section-kicker">Genome reconstruction</div>
+        <h3 class="section-title h5">Genome inventory</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr>{% for col in sd.genome_inventory[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for row in sd.genome_inventory %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if sd.pipeline_summary %}
+      <section class="section-card">
+        <div class="section-kicker">Pipeline summary</div>
+        <h3 class="section-title h5">Cross-branch synthesis</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr>{% for col in sd.pipeline_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for row in sd.pipeline_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </section>
       {% endif %}
     </div>
-  </div>
-  {% endif %}
-
-  {% if sd.genome_summary %}
-  <div class="card mb-4">
-    <div class="card-header">Genome summary</div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr>{% for col in sd.genome_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in sd.genome_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if sd.genome_inventory %}
-  <div class="card mb-4">
-    <div class="card-header">Genome inventory</div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr>{% for col in sd.genome_inventory[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in sd.genome_inventory %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if sd.pipeline_summary %}
-  <div class="card mb-4">
-    <div class="card-header">Pipeline summary</div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr>{% for col in sd.pipeline_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-          <tbody>{% for row in sd.pipeline_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
+  </article>
   {% endfor %}
 </div>
 
 <script>
+  var plotTheme = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: '#ffffff',
+    font: {family: '"Segoe UI", Arial, sans-serif', color: '#1d2840'},
+    margin: {l: 70, r: 20, t: 10, b: 45}
+  };
+
   function renderHorizontalBar(containerId, rows, barColor) {
     if (!rows || rows.length === 0) return;
     var el = document.getElementById(containerId);
@@ -203,13 +659,17 @@
       orientation: 'h',
       x: rows.map(function(r) { return Number(r.reads || 0); }),
       y: rows.map(function(r) { return r.name; }),
-      marker: {color: barColor},
+      marker: {color: barColor, line: {color: barColor, width: 1}},
       hovertemplate: '%{y}<br>Reads: %{x:,}<extra></extra>'
-    }], {
-      margin: {l: 220, r: 20, t: 10, b: 40},
-      height: 300,
-      xaxis: {title: 'Reads'}
-    }, {responsive: true, displayModeBar: false});
+    }], Object.assign({}, plotTheme, {
+      margin: {l: 230, r: 20, t: 10, b: 45},
+      xaxis: {
+        title: 'Reads',
+        gridcolor: '#d9e3f0',
+        zerolinecolor: '#d9e3f0'
+      },
+      yaxis: {automargin: true}
+    }), {responsive: true, displayModeBar: false});
   }
 
   {% for sd in samples_data %}
@@ -217,21 +677,26 @@
     var sampleId = {{ sd.sample | tojson }};
     var kraken2Species = {{ sd.kraken2_species | tojson }};
     var centrifugerSpecies = {{ sd.centrifuger_species | tojson }};
-    var hostPlotData = {{ sd.host_plot_data | default('null') }};
+    var hostPlotData = {% if sd.host_plot_data %}{{ sd.host_plot_data | tojson }}{% else %}null{% endif %};
 
     if (hostPlotData) {
       Plotly.newPlot('host-removal-plot-' + sampleId, [{
         type: 'pie',
         labels: hostPlotData.labels,
         values: hostPlotData.values,
-        hole: 0.45,
-        marker: {colors: ['#111166', '#00a7cf']},
+        hole: 0.62,
+        marker: {colors: ['#10164f', '#19b6d4']},
+        textinfo: 'label+percent',
         hovertemplate: '%{label}: %{value:,} (%{percent})<extra></extra>'
-      }], {margin: {l: 20, r: 20, t: 10, b: 10}}, {responsive: true, displayModeBar: false});
+      }], Object.assign({}, plotTheme, {
+        margin: {l: 20, r: 20, t: 10, b: 10},
+        showlegend: true,
+        legend: {orientation: 'h', y: -0.1}
+      }), {responsive: true, displayModeBar: false});
     }
 
-    renderHorizontalBar('kraken2-plot-' + sampleId, kraken2Species, '#00a7cf');
-    renderHorizontalBar('centrifuger-plot-' + sampleId, centrifugerSpecies, '#111166');
+    renderHorizontalBar('kraken2-plot-' + sampleId, kraken2Species, '#19b6d4');
+    renderHorizontalBar('centrifuger-plot-' + sampleId, centrifugerSpecies, '#10164f');
   })();
   {% endfor %}
 </script>

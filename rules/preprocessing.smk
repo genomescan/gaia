@@ -7,12 +7,12 @@ rule convert_bam_to_fastq:
     input:
         bam=lambda wc: _search_input_file(wc.sample)
     output:
-        fastq="{sample}/reports/preprocessing/{sample}.input.fastq.gz"
+        fastq=preprocessing_path("{sample}", "{sample}.input.fastq.gz")
     threads:
         P["threads"]["samtools"]
     shell:
         r"""
-        mkdir -p {wildcards.sample}/reports/preprocessing
+        mkdir -p "$(dirname {output.fastq})"
         samtools fastq -@ {threads} {input.bam} -T "*" -0 {output.fastq}
         """
 
@@ -28,16 +28,16 @@ if HOST_REMOVAL_ENABLED:
             host_ref=HOST_REF,
             reads=raw_fastq_or_converted
         output:
-            bam="{sample}/reports/preprocessing/{sample}.host.bam",
-            flagstat="{sample}/reports/preprocessing/{sample}.host.flagstat.txt",
-            nohost="{sample}/reports/preprocessing/{sample}.nohost.fastq.gz"
+            bam=preprocessing_path("{sample}", "{sample}.host.bam"),
+            flagstat=preprocessing_path("{sample}", "{sample}.host.flagstat.txt"),
+            nohost=preprocessing_path("{sample}", "{sample}.nohost.fastq.gz")
         threads:
             P["threads"]["host_removal"]
         params:
-            out_prefix="{sample}/reports/preprocessing/{sample}"
+            out_prefix=preprocessing_path("{sample}", "{sample}")
         shell:
             r"""
-            mkdir -p {wildcards.sample}/reports/preprocessing
+            mkdir -p "$(dirname {output.bam})"
             {SCRIPTS_DIR}/host_removal_mm2.sh \
                 -r {input.host_ref} \
                 -i {input.reads} \
@@ -47,9 +47,9 @@ if HOST_REMOVAL_ENABLED:
 
     rule parse_host_removal_stats:
         input:
-            flagstat="{sample}/reports/preprocessing/{sample}.host.flagstat.txt"
+            flagstat=preprocessing_path("{sample}", "{sample}.host.flagstat.txt")
         output:
-            json="{sample}/reports/preprocessing/{sample}.host_removal_stats.json"
+            json=preprocessing_path("{sample}", "{sample}.host_removal_stats.json")
         shell:
             r"""
             python {SCRIPTS_DIR}/parse_host_removal.py \
@@ -62,7 +62,7 @@ if HOST_REMOVAL_ENABLED:
 def _reads_after_host_removal(wc):
     """Return the reads to use for filtering (post-host-removal or raw)."""
     if HOST_REMOVAL_ENABLED:
-        return f"{wc.sample}/reports/preprocessing/{wc.sample}.nohost.fastq.gz"
+        return preprocessing_path(wc.sample, f"{wc.sample}.nohost.fastq.gz")
     return raw_fastq_or_converted(wc)
 
 
@@ -75,7 +75,7 @@ rule chopper_filter:
     input:
         reads=_reads_after_host_removal
     output:
-        "{sample}/reports/preprocessing/{sample}.chopper.fastq.gz"
+        preprocessing_path("{sample}", "{sample}.chopper.fastq.gz")
     threads:
         P["threads"]["chopper"]
     params:
@@ -101,7 +101,7 @@ rule filtlong_filter:
     input:
         reads=_reads_after_host_removal
     output:
-        "{sample}/reports/preprocessing/{sample}.filtlong.fastq.gz"
+        preprocessing_path("{sample}", "{sample}.filtlong.fastq.gz")
     threads:
         P["threads"]["filtlong"]
     params:
@@ -123,12 +123,12 @@ rule filtlong_filter:
 rule finalize_preprocessed:
     input:
         reads=lambda wc: (
-            f"{wc.sample}/reports/preprocessing/{wc.sample}.chopper.fastq.gz"
+            preprocessing_path(wc.sample, f"{wc.sample}.chopper.fastq.gz")
             if FILTERING_METHOD == "chopper"
-            else f"{wc.sample}/reports/preprocessing/{wc.sample}.filtlong.fastq.gz"
+            else preprocessing_path(wc.sample, f"{wc.sample}.filtlong.fastq.gz")
         )
     output:
-        "{sample}/reports/preprocessing/{sample}-preprocessed.fastq.gz"
+        preprocessing_path("{sample}", "{sample}-preprocessed.fastq.gz")
     shell:
         r"""
         ln -sf $(realpath {input.reads}) {output}

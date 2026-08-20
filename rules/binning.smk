@@ -5,17 +5,17 @@ rule metabat2_bin:
     container:
         CONTAINERS["metabat2"]
     input:
-        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
-        depth="{sample}/reports/mapping_depth/{sample}.depth.txt"
+        assembly=assembly_path("MetaFlye", "{sample}", "assembly.fasta"),
+        depth=alignment_path("{sample}", "{sample}.depth.txt")
     output:
-        bins=directory("{sample}/reports/binning/metabat2/bins"),
-        done="{sample}/reports/binning/metabat2/.done"
+        bins=directory(binning_path("MetaBAT2", "{sample}", "bins")),
+        done=binning_path("MetaBAT2", "{sample}", ".done")
     threads:
         P["threads"].get("metabat2", 16)
     params:
         min_contig=METABAT2_MIN_CONTIG,
         extra=METABAT2_EXTRA,
-        out_prefix="{sample}/reports/binning/metabat2/bins/bin",
+        out_prefix=binning_path("MetaBAT2", "{sample}", "bins", "bin"),
         mapping_enabled=MAPPING_ENABLED,
         binning_enabled=BINNING_ENABLED,
         tool_enabled=("metabat2" in BINNING_TOOLS)
@@ -55,16 +55,16 @@ rule semibin2_bin:
     container:
         CONTAINERS["semibin2"]
     input:
-        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
-        bam="{sample}/reports/mapping_depth/{sample}.vs_assembly.sorted.bam"
+        assembly=assembly_path("MetaFlye", "{sample}", "assembly.fasta"),
+        bam=alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam")
     output:
-        bins=directory("{sample}/reports/binning/semibin2/bins"),
-        done="{sample}/reports/binning/semibin2/.done"
+        bins=directory(binning_path("SemiBin2", "{sample}", "bins")),
+        done=binning_path("SemiBin2", "{sample}", ".done")
     threads:
         P["threads"].get("semibin2", 24)
     params:
         extra=SEMIBIN2_EXTRA,
-        outdir="{sample}/reports/binning/semibin2",
+        outdir=binning_path("SemiBin2", "{sample}"),
         mapping_enabled=MAPPING_ENABLED,
         binning_enabled=BINNING_ENABLED,
         tool_enabled=("semibin2" in BINNING_TOOLS)
@@ -120,19 +120,19 @@ rule comebin_bin:
     container:
         CONTAINERS["comebin"]
     input:
-        assembly="{sample}/reports/assembly/metaflye/{sample}/assembly.fasta",
-        bam="{sample}/reports/mapping_depth/{sample}.vs_assembly.sorted.bam"
+        assembly=assembly_path("MetaFlye", "{sample}", "assembly.fasta"),
+        bam=alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam")
     output:
-        bins=directory("{sample}/reports/binning/comebin/bins"),
-        tsv="{sample}/reports/binning/comebin/comebin_res.tsv",
-        done="{sample}/reports/binning/comebin/.done"
+        bins=directory(binning_path("COMEBin", "{sample}", "bins")),
+        tsv=binning_path("COMEBin", "{sample}", "comebin_res.tsv"),
+        done=binning_path("COMEBin", "{sample}", ".done")
     threads:
         P["threads"].get("comebin", 24)
     params:
         extra=COMEBIN_EXTRA,
         views=COMEBIN_VIEWS,
-        outdir="{sample}/reports/binning/comebin",
-        bamdir="{sample}/reports/binning/comebin/bamfiles",
+        outdir=binning_path("COMEBin", "{sample}"),
+        bamdir=binning_path("COMEBin", "{sample}", "bamfiles"),
         comebin_exe=COMEBIN_EXECUTABLE,
         mapping_enabled=MAPPING_ENABLED,
         binning_enabled=BINNING_ENABLED,
@@ -184,17 +184,17 @@ PY
 # -------------------------------------------------------------------------
 rule collect_all_bins:
     input:
-        metabat2_done="{sample}/reports/binning/metabat2/.done" if "metabat2" in BINNING_TOOLS else [],
-        semibin2_done="{sample}/reports/binning/semibin2/.done" if "semibin2" in BINNING_TOOLS else [],
-        comebin_done="{sample}/reports/binning/comebin/.done" if "comebin" in BINNING_TOOLS else []
+        metabat2_done=binning_path("MetaBAT2", "{sample}", ".done") if "metabat2" in BINNING_TOOLS else [],
+        semibin2_done=binning_path("SemiBin2", "{sample}", ".done") if "semibin2" in BINNING_TOOLS else [],
+        comebin_done=binning_path("COMEBin", "{sample}", ".done") if "comebin" in BINNING_TOOLS else []
     output:
-        bins=directory("{sample}/reports/binning/all_bins"),
-        manifest="{sample}/reports/binning/all_bins/manifest.tsv",
-        done="{sample}/reports/binning/all_bins/.done"
+        bins=directory(binning_path("AllBins", "{sample}")),
+        manifest=binning_path("AllBins", "{sample}", "manifest.tsv"),
+        done=binning_path("AllBins", "{sample}", ".done")
     params:
-        metabat2_bins=lambda wc: f"{wc.sample}/reports/binning/metabat2/bins" if "metabat2" in BINNING_TOOLS else "",
-        semibin2_bins=lambda wc: f"{wc.sample}/reports/binning/semibin2/bins" if "semibin2" in BINNING_TOOLS else "",
-        comebin_bins=lambda wc: f"{wc.sample}/reports/binning/comebin/bins" if "comebin" in BINNING_TOOLS else "",
+        metabat2_bins=lambda wc: binning_path("MetaBAT2", wc.sample, "bins") if "metabat2" in BINNING_TOOLS else "",
+        semibin2_bins=lambda wc: binning_path("SemiBin2", wc.sample, "bins") if "semibin2" in BINNING_TOOLS else "",
+        comebin_bins=lambda wc: binning_path("COMEBin", wc.sample, "bins") if "comebin" in BINNING_TOOLS else "",
         mapping_enabled=MAPPING_ENABLED,
         binning_enabled=BINNING_ENABLED,
         tools_count=len(BINNING_TOOLS)
@@ -231,10 +231,10 @@ PY
 # -------------------------------------------------------------------------
 rule metabat2_contig2bin:
     input:
-        bins="{sample}/reports/binning/metabat2/bins",
-        done="{sample}/reports/binning/metabat2/.done"
+        bins=binning_path("MetaBAT2", "{sample}", "bins"),
+        done=binning_path("MetaBAT2", "{sample}", ".done")
     output:
-        tsv="{sample}/reports/binning/normalized/metabat2.contig2bin.tsv"
+        tsv=binning_path("Normalized", "{sample}", "metabat2.contig2bin.tsv")
     shell:
         r"""
         python {SCRIPTS_DIR}/bins_to_contig2bin.py \
@@ -246,10 +246,10 @@ rule metabat2_contig2bin:
 
 rule semibin2_contig2bin:
     input:
-        bins="{sample}/reports/binning/semibin2/bins",
-        done="{sample}/reports/binning/semibin2/.done"
+        bins=binning_path("SemiBin2", "{sample}", "bins"),
+        done=binning_path("SemiBin2", "{sample}", ".done")
     output:
-        tsv="{sample}/reports/binning/normalized/semibin2.contig2bin.tsv"
+        tsv=binning_path("Normalized", "{sample}", "semibin2.contig2bin.tsv")
     shell:
         r"""
         python {SCRIPTS_DIR}/bins_to_contig2bin.py \
@@ -261,10 +261,10 @@ rule semibin2_contig2bin:
 
 rule comebin_contig2bin:
     input:
-        bins="{sample}/reports/binning/comebin/bins",
-        done="{sample}/reports/binning/comebin/.done"
+        bins=binning_path("COMEBin", "{sample}", "bins"),
+        done=binning_path("COMEBin", "{sample}", ".done")
     output:
-        tsv="{sample}/reports/binning/normalized/comebin.contig2bin.tsv"
+        tsv=binning_path("Normalized", "{sample}", "comebin.contig2bin.tsv")
     shell:
         r"""
         python {SCRIPTS_DIR}/bins_to_contig2bin.py \
