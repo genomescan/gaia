@@ -83,6 +83,10 @@ rule render_run_report:
         filtlong_keep_percent=P["filtlong"]["keep_percent"],
         workflow_png=os.path.join(
             os.path.dirname(config.get("path_scripts", "scripts")), "_workflow_.png"
+        ),
+        plotly_js=os.path.join(
+            os.path.dirname(config.get("path_scripts", "scripts")),
+            "templates", "report", "plotly-v1.58.5.js"
         )
     shell:
         r"""
@@ -104,6 +108,7 @@ rule render_run_report:
           --filtlong-min-length "{params.filtlong_min_length}" \
           --filtlong-keep-percent "{params.filtlong_keep_percent}" \
           --workflow-png "{params.workflow_png}" \
+          --plotly-js "{params.plotly_js}" \
           --output {output.html}
         """
 
