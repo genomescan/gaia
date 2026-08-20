@@ -31,11 +31,6 @@ rule all:
             )
             if PREPROCESSING_ENABLED else []
         ),
-        *(
-            expand(preprocessing_path("{sample}", "{sample}-preprocessed.fastq.gz"), sample=SAMPLES)
-            if PREPROCESSING_ENABLED else []
-        ),
-
         # -----------------------------------------------------------------
         # Host removal stats
         # -----------------------------------------------------------------
