@@ -5,12 +5,12 @@ gaia pipeline run across one or more samples.
 
 Combines:
   - Pipeline metadata (mode, samples, date)
-  - Per-sample preprocessing summary (filtering, host removal)
   - Per-sample taxonomy top-10 species (bar chart + HTML table via Plotly)
   - Per-sample assembly / genome-bin summary tables
   - Per-sample genome inventory table
   - Tool versions (from Reports/versions.json)
   - Embedded workflow diagram (_workflow_.png as base64)
+  - Embedded Plotly runtime JS (injected from file path via argparse)
 
 Inputs are all optional; sections are shown only when the relevant file
 exists and is non-empty.
@@ -64,6 +64,15 @@ def _read_json(path):
         return json.load(fh)
 
 
+def _read_text(path):
+    if not path:
+        raise ValueError("--plotly-js is required")
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Plotly JS file not found: {path}")
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
 def _encode_image_base64(path):
     """Return base64-encoded data URI for an image, or empty string if not found."""
     if not path or not os.path.exists(path):
@@ -81,17 +90,6 @@ def _split_paths(arg):
     if not arg or not arg.strip():
         return []
     return [p for p in arg.split() if p.strip()]
-
-
-def _zip_samples_paths(samples, paths):
-    """Return a dict mapping sample → path, using the paths list by index.
-
-    If *paths* is shorter than *samples*, remaining samples map to empty string.
-    """
-    result = {}
-    for i, sample in enumerate(samples):
-        result[sample] = paths[i] if i < len(paths) else ""
-    return result
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +114,7 @@ def render(
     filtlong_min_length,
     filtlong_keep_percent,
     workflow_png,
+    plotly_js,
     output,
 ):
     versions = _read_json(versions_json)
@@ -169,6 +168,8 @@ def render(
         "versions": versions,
         # Workflow diagram as base64
         "workflow_image": _encode_image_base64(workflow_png),
+        # Inline Plotly runtime JS
+        "plotly_js": Markup(plotly_js),
     }
 
     env = Environment(
@@ -216,6 +217,8 @@ def main():
     ap.add_argument("--filtlong-keep-percent", default="90")
     ap.add_argument("--workflow-png", default="",
                     help="Path to _workflow_.png for embedding as base64 (should be pipeline repo root)")
+    ap.add_argument("--plotly-js", required=True,
+                    help="Path to Plotly JS source file to inject inline (e.g. templates/report/plotly-v1.58.5.js)")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -239,6 +242,7 @@ def main():
         filtlong_min_length=args.filtlong_min_length,
         filtlong_keep_percent=args.filtlong_keep_percent,
         workflow_png=args.workflow_png,
+        plotly_js=_read_text(args.plotly_js),
         output=args.output,
     )
     print(f"Report written to: {args.output}")
