@@ -17,31 +17,12 @@ rule metaflye_assemble:
         outdir=assembly_path("MetaFlye", "{sample}"),
         read_type=ASSEMBLY_READ_TYPE,
         extra=ASSEMBLY_EXTRA,
-        enabled=ASSEMBLY_ENABLED,
         flye_exe=FLYE_EXECUTABLE
     shell:
         r"""
-        python - <<'PY'
-import sys
-
-enabled = "{params.enabled}"
-
-if enabled != "True":
-    sys.stderr.write(
-        "ERROR: assembly.enabled is false, but rule metaflye_assemble was requested.\n"
-    )
-    sys.exit(1)
-PY
-
         mkdir -p {params.outdir}
 
-        {params.flye_exe} \
-          --meta \
-          {params.read_type} \
-          {input.reads} \
-          --threads {threads} \
-          --out-dir {params.outdir} \
-          {params.extra}
+        {params.flye_exe} --meta {params.read_type} {input.reads} --threads {threads} --out-dir {params.outdir} {params.extra}
         """
 
 

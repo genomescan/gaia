@@ -116,20 +116,3 @@ rule filtlong_filter:
         | gzip -c > {output}
         """
 
-
-# -------------------------------------------------------------------------
-# Final preprocessed reads: symlink/copy from selected filtering method
-# -------------------------------------------------------------------------
-rule finalize_preprocessed:
-    input:
-        reads=lambda wc: (
-            preprocessing_path(wc.sample, f"{wc.sample}.chopper.fastq.gz")
-            if FILTERING_METHOD == "chopper"
-            else preprocessing_path(wc.sample, f"{wc.sample}.filtlong.fastq.gz")
-        )
-    output:
-        preprocessing_path("{sample}", "{sample}-preprocessed.fastq.gz")
-    shell:
-        r"""
-        ln -sf $(realpath {input.reads}) {output}
-        """

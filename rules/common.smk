@@ -135,7 +135,7 @@ def raw_fastq_or_converted(wc):
 
 def downstream_reads(wc):
     if PREPROCESSING_ENABLED:
-        return preprocessing_path(wc.sample, f"{wc.sample}-preprocessed.fastq.gz")
+        return preprocessing_path(wc.sample, f"{wc.sample}.{FILTERING_METHOD}.fastq.gz")
     return raw_fastq_or_converted(wc)
 
 def profile_stage_done(wc):
