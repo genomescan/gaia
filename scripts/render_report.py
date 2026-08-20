@@ -169,7 +169,7 @@ def render(
         # Workflow diagram as base64
         "workflow_image": _encode_image_base64(workflow_png),
         # Inline Plotly runtime JS
-        "plotly_js": Markup(plotly_js),
+        "plotly_js": Markup(f"<script>{plotly_js}</script>"),
     }
 
     env = Environment(
