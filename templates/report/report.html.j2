@@ -375,6 +375,51 @@
       border: 1px dashed var(--nv-border);
     }
 
+    /* Tooltip help icon */
+    .help-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--nv-cyan-soft);
+      border: 1px solid rgba(25,182,212,0.35);
+      color: var(--nv-navy);
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: default;
+      position: relative;
+      top: -1px;
+      margin-left: 7px;
+      vertical-align: middle;
+      user-select: none;
+    }
+
+    .help-icon .help-tooltip {
+      display: none;
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 6px);
+      transform: translateX(-50%);
+      background: var(--nv-navy);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 400;
+      line-height: 1.45;
+      padding: 8px 12px;
+      border-radius: 10px;
+      white-space: normal;
+      width: 240px;
+      z-index: 999;
+      box-shadow: 0 4px 18px rgba(16,22,79,0.22);
+      pointer-events: none;
+    }
+
+    .help-icon:hover .help-tooltip {
+      display: block;
+    }
+
     @media (max-width: 1080px) {
       .layout {
         grid-template-columns: 1fr;
@@ -567,7 +612,10 @@
       {% if sd.host_stats and sd.host_plot_data %}
       <section class="section-card split">
         <div class="section-kicker">Host removal</div>
-        <h3 class="section-title h5">Read partitioning</h3>
+        <h3 class="section-title h5">
+          Read partitioning
+          <span class="help-icon">?<span class="help-tooltip">Proportion of sequencing reads mapped to the host genome versus non-host (microbial) reads. Non-host reads proceed to downstream taxonomic and genomic analyses.</span></span>
+        </h3>
         <div id="host-removal-plot-{{ sd.sample }}" class="plot"></div>
       </section>
 
@@ -587,56 +635,13 @@
       </section>
       {% endif %}
 
-      {% if sd.kraken2_species %}
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">Kraken2 top species</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
-            <tbody>
-            {% for row in sd.kraken2_species %}
-              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">Kraken2 abundance chart (Top 10)</h3>
-        <div id="kraken2-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
-      </section>
-      {% endif %}
-
-      {% if sd.centrifuger_species %}
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">Centrifuger top species</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
-            <tbody>
-            {% for row in sd.centrifuger_species %}
-              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">Centrifuger abundance chart (Top 10)</h3>
-        <div id="centrifuger-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
-      </section>
-      {% endif %}
-
       {% if sd.nanoplot_raw or sd.nanoplot_filtered %}
       <section class="section-card">
         <div class="section-kicker">Read quality</div>
-        <h3 class="section-title h5">NanoPlot metrics – raw vs filtered</h3>
+        <h3 class="section-title h5">
+          NanoPlot metrics – raw vs filtered
+          <span class="help-icon">?<span class="help-tooltip">Summary of read-level quality and length statistics produced by NanoPlot, comparing raw (pre-filtering) and filtered reads. Higher values for quality and length indicate better sequencing output.</span></span>
+        </h3>
         <div class="table-responsive mb-3">
           <table class="table table-sm align-middle">
             <thead><tr><th>Metric</th><th>Raw</th><th>Filtered</th></tr></thead>
@@ -664,12 +669,68 @@
           </table>
         </div>
         <div id="nanoplot-chart-{{ sd.sample }}" class="plot" style="min-height:350px;"></div>
+        <div id="nanoplot-quality-chart-{{ sd.sample }}" class="plot" style="min-height:280px; margin-top:14px;"></div>
+      </section>
+      {% endif %}
+
+      {% if sd.kraken2_species %}
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">
+          Kraken2 top species
+          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Kraken2. The table shows the most abundant species identified in the sample, ranked by read count.</span></span>
+        </h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
+            <tbody>
+            {% for row in sd.kraken2_species %}
+              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">Kraken2 abundance chart (Top 10)</h3>
+        <div id="kraken2-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
+      </section>
+      {% endif %}
+
+      {% if sd.centrifuger_species %}
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">
+          Centrifuger top species
+          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Centrifuger. The table shows the most abundant species identified in the sample, ranked by read count.</span></span>
+        </h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
+            <tbody>
+            {% for row in sd.centrifuger_species %}
+              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section-card split">
+        <div class="section-kicker">Taxonomy</div>
+        <h3 class="section-title h5">Centrifuger abundance chart (Top 10)</h3>
+        <div id="centrifuger-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
       </section>
       {% endif %}
       {% if sd.genome_summary %}
       <section class="section-card">
         <div class="section-kicker">Genome reconstruction</div>
-        <h3 class="section-title h5">Genome summary</h3>
+        <h3 class="section-title h5">
+          Genome summary
+          <span class="help-icon">?<span class="help-tooltip">Summary statistics for assembled or binned genomes recovered from this sample, including completeness and contamination estimates.</span></span>
+        </h3>
         <div class="table-responsive">
           <table class="table table-sm align-middle">
             <thead><tr>{% for col in sd.genome_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
@@ -781,49 +842,94 @@
       var filteredMetrics = {{ sd.nanoplot_filtered | tojson }};
       var chartEl = document.getElementById('nanoplot-chart-' + sampleId);
       if (!chartEl || (!Object.keys(rawMetrics).length && !Object.keys(filteredMetrics).length)) return;
-      var metricKeys = [
+
+      // Length/yield metrics (primary chart – values in bp / counts)
+      var lengthKeys = [
         ['mean_read_length',   'Mean read length (bp)'],
         ['median_read_length', 'Median read length (bp)'],
-        ['read_length_n50',    'N50 (bp)'],
-        ['mean_read_quality',  'Mean quality'],
-        ['median_read_quality','Median quality']
+        ['read_length_n50',    'N50 (bp)']
       ];
-      var labels = [], rawVals = [], filtVals = [];
-      metricKeys.forEach(function(kl) {
+      var lengthLabels = [], lengthRaw = [], lengthFilt = [];
+      lengthKeys.forEach(function(kl) {
         var key = kl[0], label = kl[1];
         if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
-          labels.push(label);
-          rawVals.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
-          filtVals.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
+          lengthLabels.push(label);
+          lengthRaw.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
+          lengthFilt.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
         }
       });
-      if (!labels.length) return;
-      Plotly.newPlot('nanoplot-chart-' + sampleId, [
-        {
-          name: 'Raw',
-          type: 'bar',
-          x: labels,
-          y: rawVals,
-          marker: {color: '#19b6d4'},
-          hovertemplate: '%{x}: %{y:,}<extra>Raw</extra>'
-        },
-        {
-          name: 'Filtered',
-          type: 'bar',
-          x: labels,
-          y: filtVals,
-          marker: {color: '#10164f'},
-          hovertemplate: '%{x}: %{y:,}<extra>Filtered</extra>'
+      if (lengthLabels.length) {
+        Plotly.newPlot('nanoplot-chart-' + sampleId, [
+          {
+            name: 'Raw',
+            type: 'bar',
+            x: lengthLabels,
+            y: lengthRaw,
+            marker: {color: '#19b6d4'},
+            hovertemplate: '%{x}: %{y:,}<extra>Raw</extra>'
+          },
+          {
+            name: 'Filtered',
+            type: 'bar',
+            x: lengthLabels,
+            y: lengthFilt,
+            marker: {color: '#10164f'},
+            hovertemplate: '%{x}: %{y:,}<extra>Filtered</extra>'
+          }
+        ], Object.assign({}, plotTheme, {
+          barmode: 'group',
+          title: {text: 'NanoPlot: Read length metrics – raw vs filtered', font: {size: 14, color: '#1d2840'}},
+          margin: {l: 70, r: 20, t: 40, b: 80},
+          xaxis: {tickangle: -20, automargin: true},
+          yaxis: {title: 'Length (bp)', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0'},
+          legend: {orientation: 'h', y: -0.25},
+          showlegend: true
+        }), {responsive: true, displayModeBar: false});
+      }
+
+      // Quality metrics (separate chart – Phred Q-score scale, ~0–40)
+      var qualKeys = [
+        ['mean_read_quality',   'Mean quality (Q)'],
+        ['median_read_quality', 'Median quality (Q)']
+      ];
+      var qualLabels = [], qualRaw = [], qualFilt = [];
+      qualKeys.forEach(function(kl) {
+        var key = kl[0], label = kl[1];
+        if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
+          qualLabels.push(label);
+          qualRaw.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
+          qualFilt.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
         }
-      ], Object.assign({}, plotTheme, {
-        barmode: 'group',
-        title: {text: 'NanoPlot: Raw vs Filtered read metrics', font: {size: 14, color: '#1d2840'}},
-        margin: {l: 70, r: 20, t: 40, b: 80},
-        xaxis: {tickangle: -20, automargin: true},
-        yaxis: {title: 'Value', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0'},
-        legend: {orientation: 'h', y: -0.25},
-        showlegend: true
-      }), {responsive: true, displayModeBar: false});
+      });
+      var qualEl = document.getElementById('nanoplot-quality-chart-' + sampleId);
+      if (qualEl && qualLabels.length) {
+        Plotly.newPlot('nanoplot-quality-chart-' + sampleId, [
+          {
+            name: 'Raw',
+            type: 'bar',
+            x: qualLabels,
+            y: qualRaw,
+            marker: {color: '#19b6d4'},
+            hovertemplate: '%{x}: %{y:.2f}<extra>Raw</extra>'
+          },
+          {
+            name: 'Filtered',
+            type: 'bar',
+            x: qualLabels,
+            y: qualFilt,
+            marker: {color: '#10164f'},
+            hovertemplate: '%{x}: %{y:.2f}<extra>Filtered</extra>'
+          }
+        ], Object.assign({}, plotTheme, {
+          barmode: 'group',
+          title: {text: 'NanoPlot: Read quality (Phred Q-score) – raw vs filtered', font: {size: 14, color: '#1d2840'}},
+          margin: {l: 70, r: 20, t: 40, b: 80},
+          xaxis: {automargin: true},
+          yaxis: {title: 'Phred quality score (Q)', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0', rangemode: 'tozero'},
+          legend: {orientation: 'h', y: -0.25},
+          showlegend: true
+        }), {responsive: true, displayModeBar: false});
+      }
     })();
   })();
   {% endfor %}
