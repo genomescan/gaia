@@ -25,6 +25,7 @@ The workflow is controlled through a central `config.yaml` file and is designed 
 - [Databases](#databases)
 - [Containers](#containers)
 - [Preparing a run and running the pipeline](#preparing-and-running)
+- [Standalone insert mapping helper](#standalone-insert-mapping-helper)
 - [Output structure](#output-structure)
 - [Acknowledgements](#acknowledgements)
 
@@ -211,6 +212,41 @@ The expected container paths are defined in the `containers` section of `config.
 
 5. Run the pipeline directly or on a Slurm system with the provided `run.sh`.
 
+
+## Standalone insert mapping helper
+
+For PacBio HiFi insertion-site follow-up work where only the insert FASTA and a host
+reference genome are available, use:
+
+```text
+scripts/pacbio_insert_mapping.sh
+```
+
+This helper is intentionally separate from the metagenomics Snakemake workflow. It:
+
+- uses the insert sequence only as bait to find insert-positive reads
+- supports `FASTQ`, `FASTQ.GZ`, `FASTA`, `FASTA.GZ` and `BAM` input
+- extracts left and right flanks from each positive read
+- aligns the flanks back to the reference genome with `minimap2`
+- reports per-read candidate junctions and a grouped site summary in TSV format
+
+It does **not** require a merged insert+genome reference or a full cassette sequence.
+
+Example:
+
+```bash
+scripts/pacbio_insert_mapping.sh \
+  -i /path/to/hifi_reads.fastq.gz \
+  -r /path/to/GCF_003668045.3_CriGri-PICRH-1.0_genomic.fna \
+  -q /path/to/insert.fasta \
+  -o /path/to/insert_mapping_out \
+  -t 16
+```
+
+The main primer-design-oriented outputs are:
+
+- `candidate_insertions.tsv`: per-read candidate loci with left/right junction support
+- `candidate_sites.tsv`: grouped site calls with supporting-read counts and MAPQ support
 
 ## Output structure
 
