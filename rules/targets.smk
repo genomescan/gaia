@@ -276,6 +276,10 @@ def all_targets(wildcards):
             expand(report_path("{sample}", "{sample}.taxonomy_top10.json"), sample=SAMPLES)
             if TAXONOMY_ENABLED else []
         ),
+        *(
+            expand(report_path("{sample}", "{sample}.assembly_stats.json"), sample=SAMPLES)
+            if RUN_ASSEMBLY else []
+        ),
         os.path.join("Reports", "report.html")
     ]
 

@@ -62,6 +62,36 @@ rule parse_taxonomy_report:
 
 
 # -------------------------------------------------------------------------
+# Parse assembly QC metrics (N50, contig count, ...) → JSON
+#
+# Assembly runs for every sample in an assembly-enabled run mode, regardless
+# of whether it later passes the binning gate, so this is always computed
+# per-sample when RUN_ASSEMBLY is true (unlike genome/pipeline summaries,
+# which only exist for samples that were binned).
+# -------------------------------------------------------------------------
+rule parse_assembly_stats:
+    input:
+        assembly_info=assembly_path("MetaFlye", "{sample}", "assembly_info.txt"),
+        metaquast_tsv=(
+            assembly_path("MetaQUAST", "{sample}", "report.tsv")
+            if METAQUAST_ENABLED else []
+        )
+    output:
+        json=report_path("{sample}", "{sample}.assembly_stats.json")
+    params:
+        metaquast_tsv=assembly_path("MetaQUAST", "{sample}", "report.tsv") if METAQUAST_ENABLED else ""
+    shell:
+        r"""
+        mkdir -p "$(dirname {output.json})"
+        python {SCRIPTS_DIR}/parse_assembly_stats.py \
+          --sample {wildcards.sample} \
+          --assembly-info "{input.assembly_info}" \
+          --metaquast-report "{params.metaquast_tsv}" \
+          --output {output.json}
+        """
+
+
+# -------------------------------------------------------------------------
 # Render HTML report (single run-level report for all samples)
 # -------------------------------------------------------------------------
 rule render_run_report:
@@ -74,8 +104,14 @@ rule render_run_report:
             report_path("{sample}", "{sample}.nanoplot_metrics.json"),
             sample=SAMPLES
         ),
+        assembly_stats_jsons=expand(
+            report_path("{sample}", "{sample}.assembly_stats.json"),
+            sample=SAMPLES
+        ) if RUN_ASSEMBLY else [],
         # Only samples that passed the post-assembly binning gate have
         # genome/pipeline summaries (see binning_gate_passed() in common.smk).
+        # Each row/record embeds its own "sample" field, so render_report.py
+        # matches them back to samples by name rather than by list position.
         genome_summaries=(
             lambda wc: [report_path(s, f"{s}.genome_summary.tsv") for s in binning_samples()]
         ) if RUN_ASSEMBLY else [],
@@ -94,6 +130,7 @@ rule render_run_report:
         html=os.path.join("Reports", "report.html")
     params:
         samples=",".join(SAMPLES),
+        binning_enabled=BINNING_ENABLED,
         run_mode=RUN_MODE,
         filtering_method=FILTERING_METHOD,
         preprocessing_enabled=PREPROCESSING_ENABLED,
@@ -115,8 +152,10 @@ rule render_run_report:
         python {SCRIPTS_DIR}/render_report.py \
           --samples "{params.samples}" \
           --run-mode {params.run_mode} \
+          --binning-enabled "{params.binning_enabled}" \
           --taxonomy-jsons "{input.taxonomy_jsons}" \
           --nanoplot-jsons "{input.nanoplot_jsons}" \
+          --assembly-stats-jsons "{input.assembly_stats_jsons}" \
           --genome-summaries "{input.genome_summaries}" \
           --genome-inventories "{input.genome_inventories}" \
           --pipeline-summaries "{input.pipeline_summaries}" \

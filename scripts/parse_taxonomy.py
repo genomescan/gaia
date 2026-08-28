@@ -44,7 +44,7 @@ def parse_kraken2(path, top_n=10):
             if rank != "S":
                 continue
             try:
-                pct = float(parts[0].strip())
+                pct = round(float(parts[0].strip()), 1)
                 reads = int(parts[1].strip())
             except ValueError:
                 continue
@@ -82,7 +82,7 @@ def parse_centrifuger(path, top_n=10):
             name = row.get("name", "").strip()
             if not name or name in ("unclassified", "root"):
                 continue
-            species.append({"name": name, "reads": reads, "percent": round(abundance * 100, 4)})
+            species.append({"name": name, "reads": reads, "percent": round(abundance * 100, 1)})
     species.sort(key=lambda x: x["reads"], reverse=True)
     return species[:top_n]
 
