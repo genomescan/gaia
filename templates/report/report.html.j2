@@ -651,39 +651,73 @@
         Pipeline overview
         <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline stage, matching the legend below.</span></span>
       </h2>
-      {% if workflow_image %}
-        <div class="tag-list workflow-legend">
-          {% for cat in workflow_diagram.legend %}
-          <span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
-          {% endfor %}
-        </div>
-        <div class="workflow-svg-wrap">
-          <svg class="workflow-svg" viewBox="0 0 1000 520" role="img"
-               aria-label="Interactive gaia pipeline workflow diagram. Hover or focus each tool node for details.">
-            {% for edge in workflow_diagram.edges %}
-            <line class="wf-edge" x1="{{ edge.x1 * 12 }}" y1="{{ edge.y1 * 5 }}"
-                  x2="{{ edge.x2 * 12 }}" y2="{{ edge.y2 * 5 }}" stroke="{{ edge.color }}"/>
-            {% endfor %}
-            {% for node in workflow_diagram.nodes %}
-            <g class="wf-node" tabindex="0" transform="translate({{ node.x * 12 }}, {{ node.y * 5 }})">
-              <title>{{ node.label }}: {{ node.description }}</title>
-              <circle class="wf-hit" r="20"/>
-              <circle class="wf-dot" r="9" stroke="{{ node.color }}"/>
-              <text class="wf-label" y="-16">{{ node.label }}</text>
-              <foreignObject x="-115" y="-96" width="230" height="76" overflow="visible">
-                <div xmlns="http://www.w3.org/1999/xhtml" class="wf-tooltip">
-                  <strong>{{ node.label }}</strong>{{ node.description }}
-                </div>
-              </foreignObject>
-            </g>
-            {% endfor %}
-          </svg>
-        </div>
-      {% elif workflow_diagram and workflow_diagram.nodes %}
-        <img src="{{ workflow_image }}" alt="Pipeline workflow"/>
-      {% else %}
-        <div class="empty-state">No workflow overview information was available for embedding.</div>
-      {% endif %}
+			{% if workflow_image %}
+				<div class="tag-list workflow-legend">
+					{% for cat in workflow_diagram.legend %}
+					<span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
+					{% endfor %}
+				</div>
+				<div class="workflow-image-wrap">
+					<img src="{{ workflow_image }}" alt="Pipeline workflow" class="workflow-base"/>
+
+					<svg class="workflow-hotspots" viewBox="0 0 821 821" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Workflow with interactive node hotspots">
+						<g class="hs" tabindex="0"><title>Generate quality-control metrics for raw sequencing reads.</title><circle cx="194" cy="260" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Align reads to the host reference and process alignment files.</title><circle cx="305" cy="260" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Trim/filter reads by quality score and minimum length.</title><circle cx="415" cy="260" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Filter reads to retain the highest-quality subset for downstream analysis.</title><circle cx="525" cy="260" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Generate quality-control metrics for filtered reads.</title><circle cx="635" cy="260" r="14"/></g>
+
+						<g class="hs" tabindex="0"><title>Estimate read coverage/depth to support assembly and binning.</title><circle cx="415" cy="350" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Assemble long reads into contigs.</title><circle cx="525" cy="388" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Assess assembly quality statistics.</title><circle cx="470" cy="465" r="14"/></g>
+
+						<g class="hs" tabindex="0"><title>Recover metagenome bins using graph-based binning.</title><circle cx="305" cy="360" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Recover metagenome bins using tetranucleotide composition and abundance.</title><circle cx="305" cy="390" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Recover metagenome bins using coverage/composition clustering.</title><circle cx="305" cy="420" r="14"/></g>
+
+						<g class="hs" tabindex="0"><title>Refine eukaryotic bins for completeness and quality.</title><circle cx="100" cy="540" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Dereplicate and quality-check eukaryotic bins.</title><circle cx="100" cy="615" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Assign taxonomy to eukaryotic bins.</title><circle cx="100" cy="695" r="14"/></g>
+
+						<g class="hs" tabindex="0"><title>Merge and refine prokaryotic bins from multiple binning methods.</title><circle cx="220" cy="540" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Estimate prokaryotic bin completeness and contamination.</title><circle cx="220" cy="615" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Assign taxonomy to prokaryotic bins.</title><circle cx="220" cy="695" r="14"/></g>
+
+						<g class="hs" tabindex="0"><title>Classify reads taxonomically with k-mer matching.</title><circle cx="635" cy="465" r="14"/></g>
+						<g class="hs" tabindex="0"><title>Classify reads taxonomically using genome-length-normalized abundance estimates.</title><circle cx="635" cy="540" r="14"/></g>
+					</svg>
+				</div>
+			{% elif workflow_diagram and workflow_diagram.nodes %}
+				<div class="tag-list workflow-legend">
+					{% for cat in workflow_diagram.legend %}
+					<span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
+					{% endfor %}
+				</div>
+				<div class="workflow-svg-wrap">
+					<svg class="workflow-svg" viewBox="0 0 1000 520" role="img"
+						   aria-label="Interactive gaia pipeline workflow diagram. Hover or focus each tool node for details.">
+						{% for edge in workflow_diagram.edges %}
+						<line class="wf-edge" x1="{{ edge.x1 * 12 }}" y1="{{ edge.y1 * 5 }}"
+						      x2="{{ edge.x2 * 12 }}" y2="{{ edge.y2 * 5 }}" stroke="{{ edge.color }}"/>
+						{% endfor %}
+						{% for node in workflow_diagram.nodes %}
+						<g class="wf-node" tabindex="0" transform="translate({{ node.x * 12 }}, {{ node.y * 5 }})">
+						  <title>{{ node.label }}: {{ node.description }}</title>
+						  <circle class="wf-hit" r="20"/>
+						  <circle class="wf-dot" r="9" stroke="{{ node.color }}"/>
+						  <text class="wf-label" y="-16">{{ node.label }}</text>
+						  <foreignObject x="-115" y="-96" width="230" height="76" overflow="visible">
+						    <div xmlns="http://www.w3.org/1999/xhtml" class="wf-tooltip">
+						      <strong>{{ node.label }}</strong>{{ node.description }}
+						    </div>
+						  </foreignObject>
+						</g>
+						{% endfor %}
+					</svg>
+				</div>
+			{% else %}
+				<div class="empty-state">No workflow overview information was available for embedding.</div>
+			{% endif %}
     </div>
   </section>
 
