@@ -14,6 +14,11 @@ The workflow is controlled through a central `config.yaml` file and is designed 
 
 <img src="_workflow_.png" alt="Workflow overview" width="600">
 
+> The generated `Reports/report.html` includes an interactive version of this
+> diagram: hover (or tab to and focus) a tool node to see what it does. To add
+> or update a node's tooltip, edit `WORKFLOW_NODES`/`WORKFLOW_EDGES` in
+> `scripts/render_report.py`.
+
 
 ## Contents
 

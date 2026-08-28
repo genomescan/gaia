@@ -39,6 +39,147 @@ from markupsafe import Markup
 
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates" / "report"
 
+# ---------------------------------------------------------------------------
+# Interactive workflow diagram (replaces the static _workflow_.png in the
+# report). This is a small, hand-maintained mapping of pipeline steps to the
+# information shown in the on-hover tooltip in the report's "Pipeline
+# overview" panel.
+#
+# To add/update a node:
+#   1. Add/edit an entry in WORKFLOW_NODES below. "x"/"y" are percentages
+#      (0-100) of the diagram viewBox and control where the dot is placed;
+#      "category" must be a key in WORKFLOW_CATEGORIES (controls dot/line
+#      colour and legend grouping); "description" is the tooltip text
+#      (tool name + what it does in the pipeline).
+#   2. If the new step should be visually connected to another step, add an
+#      ("from_id", "to_id") tuple to WORKFLOW_EDGES.
+# No other code changes are needed — render_report.py serialises these
+# structures for report.html.j2 to draw as inline SVG.
+# ---------------------------------------------------------------------------
+WORKFLOW_CATEGORIES = {
+    "preprocessing": {"label": "QC & Preprocessing", "color": "#6c8ebf"},
+    "profiling": {"label": "Rapid Classification & Profiling", "color": "#9673a6"},
+    "assembly": {"label": "Assembly & Binning", "color": "#82b366"},
+    "prok": {"label": "Prok Bin Refinement & Classification", "color": "#b85450"},
+    "euk": {"label": "Euk Bin Refinement & Classification", "color": "#d6b656"},
+}
+
+WORKFLOW_NODES = [
+    {"id": "nanoplot_raw", "label": "NanoPlot + nanoQC (Raw)", "category": "preprocessing",
+     "x": 8, "y": 20,
+     "description": "Quality-checks the raw long reads (length, quality, yield) before any "
+                    "preprocessing, giving a baseline to compare against after filtering."},
+    {"id": "host_removal", "label": "minimap2 + samtools", "category": "preprocessing",
+     "x": 24, "y": 20,
+     "description": "Maps reads to the configured host reference genome and removes "
+                    "host-derived alignments, keeping only non-host (microbial) reads."},
+    {"id": "chopper", "label": "Chopper", "category": "preprocessing",
+     "x": 40, "y": 20,
+     "description": "Trims and filters reads by minimum length and quality score to remove "
+                    "low-quality or overly short reads."},
+    {"id": "filtlong", "label": "Filtlong", "category": "preprocessing",
+     "x": 56, "y": 20,
+     "description": "Performs additional read filtering, keeping the best-scoring reads by "
+                    "length and quality (used as an alternative to Chopper)."},
+    {"id": "nanoplot_filtered", "label": "NanoPlot + nanoQC (Filtered)", "category": "preprocessing",
+     "x": 72, "y": 20,
+     "description": "Re-runs quality control on the filtered reads to confirm the effect of "
+                    "preprocessing before downstream analysis."},
+
+    {"id": "kraken2", "label": "Kraken2", "category": "profiling",
+     "x": 40, "y": 40,
+     "description": "Fast k-mer based taxonomic classification run directly on reads, for "
+                    "rapid compositional profiling."},
+    {"id": "centrifuger", "label": "Centrifuger", "category": "profiling",
+     "x": 56, "y": 40,
+     "description": "Classifies reads against a compressed reference index to estimate "
+                    "microbial community composition and abundance."},
+
+    {"id": "metaflye", "label": "metaFlye", "category": "assembly",
+     "x": 24, "y": 58,
+     "description": "Assembles the filtered long reads into metagenomic contigs."},
+    {"id": "metaquast", "label": "MetaQUAST", "category": "assembly",
+     "x": 40, "y": 58,
+     "description": "Evaluates assembly quality, reporting metrics such as N50, contig count "
+                    "and total assembly length."},
+    {"id": "coverage", "label": "Coverage / depth calculation", "category": "assembly",
+     "x": 56, "y": 58,
+     "description": "Maps reads back to the assembly (minimap2/samtools) and summarises "
+                    "per-contig depth (jgi_summarize_bam_contig_depths) as input for binning."},
+    {"id": "binners", "label": "SemiBin2 / MetaBAT2 / COMEBin", "category": "assembly",
+     "x": 72, "y": 58,
+     "description": "Groups assembled contigs into candidate genome bins using sequence "
+                    "composition and coverage/depth signals."},
+
+    {"id": "dastool", "label": "DAS Tool", "category": "prok",
+     "x": 24, "y": 76,
+     "description": "Integrates candidate bins from the multiple binners into a single "
+                    "non-redundant, optimised set of prokaryotic bins."},
+    {"id": "checkm2", "label": "CheckM2", "category": "prok",
+     "x": 40, "y": 76,
+     "description": "Estimates completeness and contamination of the refined prokaryotic "
+                    "bins to assess genome quality."},
+    {"id": "gtdbtk", "label": "GTDB-Tk", "category": "prok",
+     "x": 56, "y": 76,
+     "description": "Assigns taxonomy to prokaryotic bins using the GTDB reference database "
+                    "and marker-gene phylogenetics."},
+
+    {"id": "acr", "label": "ACR", "category": "euk",
+     "x": 24, "y": 92,
+     "description": "Identifies and refines candidate eukaryotic bins from the assembly for "
+                    "downstream eukaryotic-specific processing."},
+    {"id": "drep_eukcc", "label": "dRep / EukCC", "category": "euk",
+     "x": 40, "y": 92,
+     "description": "Dereplicates redundant eukaryotic bins (dRep) and assesses their "
+                    "completeness/contamination (EukCC)."},
+    {"id": "bat", "label": "BAT", "category": "euk",
+     "x": 56, "y": 92,
+     "description": "Assigns taxonomy to the refined eukaryotic bins/contigs using the Bin "
+                    "Annotation Tool."},
+]
+
+# Visual connections drawn between node centres (in the order given).
+WORKFLOW_EDGES = [
+    ("nanoplot_raw", "host_removal"),
+    ("host_removal", "chopper"),
+    ("chopper", "filtlong"),
+    ("filtlong", "nanoplot_filtered"),
+    ("chopper", "kraken2"),
+    ("kraken2", "centrifuger"),
+    ("host_removal", "metaflye"),
+    ("metaflye", "metaquast"),
+    ("metaflye", "coverage"),
+    ("coverage", "binners"),
+    ("binners", "dastool"),
+    ("dastool", "checkm2"),
+    ("checkm2", "gtdbtk"),
+    ("binners", "acr"),
+    ("acr", "drep_eukcc"),
+    ("drep_eukcc", "bat"),
+]
+
+
+def _build_workflow_diagram():
+    """Assemble the interactive workflow diagram context: nodes (with resolved
+    colours), edges (as endpoint coordinate pairs) and the category legend."""
+    nodes_by_id = {n["id"]: n for n in WORKFLOW_NODES}
+    nodes = [
+        {**n, "color": WORKFLOW_CATEGORIES[n["category"]]["color"]}
+        for n in WORKFLOW_NODES
+    ]
+    edges = []
+    for src, dst in WORKFLOW_EDGES:
+        a, b = nodes_by_id[src], nodes_by_id[dst]
+        edges.append({
+            "x1": a["x"], "y1": a["y"], "x2": b["x"], "y2": b["y"],
+            "color": WORKFLOW_CATEGORIES[a["category"]]["color"],
+        })
+    legend = [
+        {"label": cfg["label"], "color": cfg["color"]}
+        for cfg in WORKFLOW_CATEGORIES.values()
+    ]
+    return {"nodes": nodes, "edges": edges, "legend": legend}
+
 
 def _exists_nonempty(path):
     return bool(path) and os.path.exists(path) and os.path.getsize(path) > 0
@@ -326,7 +467,10 @@ def render(
         # Run-level overviews (collapsed across samples)
         "assembly_overview": _build_assembly_overview(samples, assembly_stats_jsons, run_assembly),
         "binning_overview": _build_binning_overview(samples, genome_summaries, binning_enabled, run_assembly),
-        # Workflow diagram as base64
+        # Interactive workflow diagram (SVG nodes/edges/legend). The static
+        # _workflow_.png is still embedded as a base64 fallback for contexts
+        # where the interactive SVG cannot be shown (e.g. printing).
+        "workflow_diagram": _build_workflow_diagram(),
         "workflow_image": _encode_image_base64(workflow_png),
         # Inline Plotly runtime JS
         "plotly_js": Markup(f"<script>{plotly_js}</script>"),
