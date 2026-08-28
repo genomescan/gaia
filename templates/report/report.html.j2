@@ -246,6 +246,54 @@
       background: #fff;
     }
 
+	.workflow-image-wrap {
+	  position: relative;
+	  width: 100%;
+	  border-radius: 18px;
+	  border: 1px solid var(--nv-border);
+	  background: #fff;
+	  overflow: hidden;
+	}
+
+	.workflow-base {
+	  display: block;
+	  width: 100%;
+	  height: auto;
+	  border: 0;          /* override generic .workflow-card img border */
+	  border-radius: 0;   /* keep wrapper as the rounded border */
+	}
+
+	.workflow-hotspots {
+	  position: absolute;
+	  inset: 0;
+	  width: 100%;
+	  height: 100%;
+	  pointer-events: none; /* let only hotspots receive events */
+	}
+
+	.workflow-hotspots .hs {
+	  pointer-events: auto;
+	  cursor: pointer;
+	}
+
+	.workflow-hotspots .hs circle {
+	  fill: rgba(25, 182, 212, 0.18);
+	  stroke: #10164f;
+	  stroke-width: 2;
+	}
+
+	.workflow-hotspots .hs:hover circle,
+	.workflow-hotspots .hs:focus circle,
+	.workflow-hotspots .hs:focus-visible circle {
+	  fill: rgba(25, 182, 212, 0.32);
+	  stroke: #19b6d4;
+	  stroke-width: 3;
+	}
+
+	.workflow-hotspots .hs:focus {
+	  outline: none;
+	}
+
     /* Interactive workflow diagram (inline SVG, see report.html.j2 +
        render_report.py WORKFLOW_NODES/WORKFLOW_EDGES for the underlying
        data). Hover/focus a tool node to reveal its tooltip. */
@@ -652,11 +700,6 @@
         <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline stage, matching the legend below.</span></span>
       </h2>
 			{% if workflow_image %}
-				<div class="tag-list workflow-legend">
-					{% for cat in workflow_diagram.legend %}
-					<span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
-					{% endfor %}
-				</div>
 				<div class="workflow-image-wrap">
 					<img src="{{ workflow_image }}" alt="Pipeline workflow" class="workflow-base"/>
 
