@@ -36,8 +36,8 @@ def main():
     total, host_reads = parse_flagstat(args.flagstat)
 
     non_host_reads = max(0, total - host_reads)
-    host_pct = round(100.0 * host_reads / total, 2) if total > 0 else 0.0
-    non_host_pct = round(100.0 * non_host_reads / total, 2) if total > 0 else 0.0
+    host_pct = round(100.0 * host_reads / total, 1) if total > 0 else 0.0
+    non_host_pct = round(100.0 * non_host_reads / total, 1) if total > 0 else 0.0
 
     stats = {
         "sample": args.sample,

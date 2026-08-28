@@ -478,8 +478,9 @@
         <div class="brand-chip">Gaia &middot; analysis pipeline for long-read shotgun metagenomics</div>
         <h1>Metagenomics run report</h1>
         <p class="hero-summary">
-          A consolidated overview of preprocessing, host removal, taxonomic profiling, genome reconstruction,
-          and final per-sample summaries for <code>{{ samples | length }}</code> sample(s).
+          A consolidated overview of preprocessing, host removal, taxonomic profiling, and genome
+          reconstruction (assembly and binning, summarized across all samples) for
+          <code>{{ samples | length }}</code> sample(s).
         </p>
       </div>
       <div class="hero-stats">
@@ -556,6 +557,124 @@
     </div>
   </section>
 
+  {% if assembly_overview.enabled %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">
+      Assembly overview
+      <span class="help-icon">?<span class="help-tooltip">Run-level summary of MetaFlye assembly quality across all samples, collapsed into a single overview instead of per-sample sections to keep the report concise. N50 and related metrics come from MetaQUAST when available, or are otherwise computed directly from the assembly contigs.</span></span>
+    </h2>
+    {% if assembly_overview.rows %}
+    <div class="metrics-grid mb-3">
+      <div class="metric">
+        <div class="stat-label">Samples assembled</div>
+        <div class="stat-value">{{ assembly_overview.samples_assembled }} / {{ assembly_overview.samples_total }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Total contigs</div>
+        <div class="stat-value">{{ assembly_overview.total_contigs }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Total assembly length (bp)</div>
+        <div class="stat-value">{{ "{:,}".format(assembly_overview.total_length) }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Median N50 (bp)</div>
+        <div class="stat-value">
+          {% if assembly_overview.median_n50 is not none %}{{ "{:,}".format(assembly_overview.median_n50) }}{% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">N50 range (bp)</div>
+        <div class="stat-value">
+          {% if assembly_overview.min_n50 is not none %}{{ "{:,}".format(assembly_overview.min_n50) }} – {{ "{:,}".format(assembly_overview.max_n50) }}{% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Sample</th><th>Contigs</th><th>Total length (bp)</th><th>N50 (bp)</th><th>Largest contig (bp)</th></tr></thead>
+        <tbody>
+        {% for row in assembly_overview.rows %}
+          <tr>
+            <td>{{ row.sample }}</td>
+            <td>{{ row.contig_count }}</td>
+            <td>{{ row.total_length }}</td>
+            <td>{{ row.n50 }}</td>
+            <td>{{ row.largest_contig }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No assembly statistics were available for this run.</div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if binning_overview.applicable %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">
+      Binning overview
+      <span class="help-icon">?<span class="help-tooltip">Run-level summary of genome bins recovered per sample, collapsed across all samples instead of shown per sample. Samples for which binning was not performed (disabled, or skipped because the assembly did not pass the post-assembly binning gate) are listed explicitly below.</span></span>
+    </h2>
+    <div class="metrics-grid mb-3">
+      <div class="metric">
+        <div class="stat-label">Samples binned</div>
+        <div class="stat-value">{{ binning_overview.samples_binned }} / {{ binning_overview.samples_total }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Total final genomes</div>
+        <div class="stat-value">{{ binning_overview.total_final_genomes }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Prokaryotic bins (high / medium quality)</div>
+        <div class="stat-value">{{ binning_overview.high_quality_prok }} / {{ binning_overview.medium_quality_prok }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Eukaryotic bins with taxonomy</div>
+        <div class="stat-value">{{ binning_overview.euk_bins_with_taxonomy }}</div>
+      </div>
+    </div>
+    {% if binning_overview.not_binned_samples %}
+    <div class="alert alert-warning" role="alert">
+      Binning was not performed for {{ binning_overview.not_binned_samples | length }} sample(s):
+      {{ binning_overview.not_binned_samples | join(", ") }}.
+      This happens when binning is disabled for the run, or when a sample's assembly did not pass
+      the post-assembly binning gate (too few/short contigs).
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Sample</th><th>Binned</th><th>Final genomes</th>
+            <th>Prok bins</th><th>Euk bins</th>
+            <th>High-quality prok</th><th>Medium-quality prok</th>
+            <th>Euk bins w/ taxonomy</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in binning_overview.rows %}
+          <tr>
+            <td>{{ row.sample }}</td>
+            <td>{{ "Yes" if row.binned else "Not binned" }}</td>
+            <td>{{ row.total_final_genomes }}</td>
+            <td>{{ row.total_bins_prok }}</td>
+            <td>{{ row.total_bins_euk }}</td>
+            <td>{{ row.high_quality_prok }}</td>
+            <td>{{ row.medium_quality_prok }}</td>
+            <td>{{ row.euk_bins_with_taxonomy }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
   <section class="sample-nav">
     <div class="sample-tabs">
       {% for sd in samples_data %}
@@ -598,12 +717,12 @@
           </div>
         </div>
         <div class="metric">
-          <div class="stat-label">Genome summary rows</div>
-          <div class="stat-value">{{ sd.genome_summary | length }}</div>
+          <div class="stat-label">Kraken2 top species</div>
+          <div class="stat-value">{{ sd.kraken2_species | length }}</div>
         </div>
         <div class="metric">
-          <div class="stat-label">Inventory rows</div>
-          <div class="stat-value">{{ sd.genome_inventory | length }}</div>
+          <div class="stat-label">Centrifuger top species</div>
+          <div class="stat-value">{{ sd.centrifuger_species | length }}</div>
         </div>
       </div>
     </div>
@@ -704,11 +823,11 @@
         <div class="section-kicker">Taxonomy</div>
         <h3 class="section-title h5">
           Centrifuger top species
-          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Centrifuger. The table shows the most abundant species identified in the sample, ranked by read count.</span></span>
+          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Centrifuger. The table shows the most abundant species identified in the sample, ranked by read count. The percentage column is Centrifuger's abundance estimate: the proportion of this genome normalized by its genomic length, not a raw share of classified reads.</span></span>
         </h3>
         <div class="table-responsive">
           <table class="table table-sm align-middle">
-            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
+            <thead><tr><th>Species</th><th>Reads</th><th>Genome-normalized abundance (%)</th></tr></thead>
             <tbody>
             {% for row in sd.centrifuger_species %}
               <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
@@ -722,47 +841,6 @@
         <div class="section-kicker">Taxonomy</div>
         <h3 class="section-title h5">Centrifuger abundance chart (Top 10)</h3>
         <div id="centrifuger-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
-      </section>
-      {% endif %}
-      {% if sd.genome_summary %}
-      <section class="section-card">
-        <div class="section-kicker">Genome reconstruction</div>
-        <h3 class="section-title h5">
-          Genome summary
-          <span class="help-icon">?<span class="help-tooltip">Summary statistics for assembled or binned genomes recovered from this sample, including completeness and contamination estimates.</span></span>
-        </h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr>{% for col in sd.genome_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-            <tbody>{% for row in sd.genome_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-          </table>
-        </div>
-      </section>
-      {% endif %}
-
-      {% if sd.genome_inventory %}
-      <section class="section-card">
-        <div class="section-kicker">Genome reconstruction</div>
-        <h3 class="section-title h5">Genome inventory</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr>{% for col in sd.genome_inventory[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-            <tbody>{% for row in sd.genome_inventory %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-          </table>
-        </div>
-      </section>
-      {% endif %}
-
-      {% if sd.pipeline_summary %}
-      <section class="section-card">
-        <div class="section-kicker">Pipeline summary</div>
-        <h3 class="section-title h5">Cross-branch synthesis</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr>{% for col in sd.pipeline_summary[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr></thead>
-            <tbody>{% for row in sd.pipeline_summary %}<tr>{% for val in row.values() %}<td>{{ val }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-          </table>
-        </div>
       </section>
       {% endif %}
     </div>
@@ -794,11 +872,11 @@
       x: topRows.map(function(r) { return Number(r.reads || 0); }),
       y: topRows.map(function(r) {
         var pct = Number(r.percent || 0);
-        return r.name + ' (' + pct.toFixed(2) + '%)';
+        return r.name + ' (' + pct.toFixed(1) + '%)';
       }),
       customdata: topRows.map(function(r) { return Number(r.percent || 0); }),
       marker: {color: barColor, line: {color: barColor, width: 1}},
-      hovertemplate: '%{y}<br>Reads: %{x:,}<br>Percentage: %{customdata:.2f}%<extra></extra>'
+      hovertemplate: '%{y}<br>Reads: %{x:,}<br>Percentage: %{customdata:.1f}%<extra></extra>'
     }], Object.assign({}, plotTheme, {
       title: {text: chartTitle + ' (Top 10)', font: {size: 14, color: '#1d2840'}},
       margin: {l: 230, r: 20, t: 10, b: 45},
