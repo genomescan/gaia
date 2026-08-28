@@ -12,44 +12,54 @@ From: ubuntu:22.04
       - chopper
       - NanoPlot
       - nanoQC
+      - pigz
 
 %environment
     export LC_ALL=C
     export LANG=C
-    export PATH=/opt/conda/envs/preproc_core/bin:/opt/conda/envs/preproc_chopper/bin:/opt/conda/bin:$PATH
+    export PATH=/usr/local/bin:$PATH
 
 %post
     set -e
     export DEBIAN_FRONTEND=noninteractive
 
     apt-get update && apt-get install -y --no-install-recommends \
-        wget curl git bzip2 ca-certificates build-essential gzip unzip \
+        wget curl git bzip2 ca-certificates build-essential gzip pigz unzip \
         autoconf automake make pkg-config \
         zlib1g-dev libbz2-dev liblzma-dev libcurl4-openssl-dev \
         libncurses5-dev libncursesw5-dev \
         python3 python3-pip
     rm -rf /var/lib/apt/lists/*
 
-    wget -qO /tmp/miniforge.sh \
-      https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-    bash /tmp/miniforge.sh -b -p /opt/conda
-    rm -f /tmp/miniforge.sh
-    export PATH=/opt/conda/bin:$PATH
-
-    conda config --system --add channels conda-forge
-    conda config --system --add channels bioconda
-    conda config --system --set channel_priority strict
-
-    conda create -y -n preproc_core python=3.10 minimap2 filtlong pip unzip
-    /opt/conda/envs/preproc_core/bin/pip install --no-cache-dir NanoPlot
+    pip3 install --no-cache-dir NanoPlot
 
     cd /tmp
     wget -qO nanoQC-master.zip https://github.com/wdecoster/nanoQC/archive/refs/heads/master.zip
     unzip -q nanoQC-master.zip
-    /opt/conda/envs/preproc_core/bin/pip install --no-cache-dir /tmp/nanoQC-master
+    pip3 install --no-cache-dir /tmp/nanoQC-master
     rm -rf /tmp/nanoQC-master /tmp/nanoQC-master.zip
-    
-    conda create -y -n preproc_chopper python=3.10 chopper
+
+    cd /tmp
+    wget -qO minimap2-2.30.tar.gz https://github.com/lh3/minimap2/archive/refs/tags/v2.30.tar.gz
+    tar -xzf minimap2-2.30.tar.gz
+    cd minimap2-2.30
+    make -j"$(nproc)"
+    install -m 0755 minimap2 /usr/local/bin/minimap2
+    cd /tmp
+    rm -rf minimap2-2.30 minimap2-2.30.tar.gz
+
+    cd /tmp
+    wget -qO filtlong-0.3.1.tar.gz https://github.com/rrwick/Filtlong/archive/refs/tags/v0.3.1.tar.gz
+    tar -xzf filtlong-0.3.1.tar.gz
+    cd Filtlong-0.3.1
+    make -j"$(nproc)"
+    install -m 0755 bin/filtlong /usr/local/bin/filtlong
+    cd /tmp
+    rm -rf Filtlong-0.3.1 filtlong-0.3.1.tar.gz
+
+    wget -qO /usr/local/bin/chopper \
+        https://github.com/wdecoster/chopper/releases/download/v0.13.0/chopper-linux-musl
+    chmod +x /usr/local/bin/chopper
 
     cd /tmp
     wget -q https://github.com/samtools/samtools/releases/download/1.22.2/samtools-1.22.2.tar.bz2
@@ -58,10 +68,18 @@ From: ubuntu:22.04
     ./configure --prefix=/usr/local
     make -j"$(nproc)"
     make install
+    cd /tmp
+    rm -rf samtools-1.22.2 samtools-1.22.2.tar.bz2
 
-    conda clean -afy
-    rm -rf /tmp/samtools-1.22.2 /tmp/samtools-1.22.2.tar.bz2
+%test
+    command -v minimap2 >/dev/null
+    command -v samtools >/dev/null
+    command -v filtlong >/dev/null
+    command -v chopper >/dev/null
+    command -v NanoPlot >/dev/null
+    command -v nanoQC >/dev/null
+    command -v pigz >/dev/null
 
 %runscript
-    export PATH=/usr/local/bin:/opt/conda/envs/preproc_core/bin:/opt/conda/envs/preproc_chopper/bin:/opt/conda/bin:$PATH
+    export PATH=/usr/local/bin:$PATH
     exec "$@"
