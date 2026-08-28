@@ -178,6 +178,14 @@ METAQUAST_REFERENCES = ASM_QC.get("metaquast_references", "")
 METAQUAST_EXTRA = ASM_QC.get("extra", "")
 
 # -------------------------------------------------------------------------
+# Binning gate config
+# -------------------------------------------------------------------------
+# After assembly, an assembly must have at least this many contigs of at
+# least this length before binning-related steps are allowed to run.
+BINNING_GATE_MIN_CONTIGS = ASM.get("min_contigs_for_binning", 10)
+BINNING_GATE_MIN_CONTIG_LENGTH = ASM.get("min_contig_length_for_binning", 1500)
+
+# -------------------------------------------------------------------------
 # Mapping / depth config
 # -------------------------------------------------------------------------
 MAP_CFG = config.get("mapping", {})
@@ -203,6 +211,28 @@ SEMIBIN2_EXTRA = SEMIBIN2_CFG.get("extra", "")
 COMEBIN_CFG = BIN_CFG.get("comebin", {})
 COMEBIN_VIEWS = COMEBIN_CFG.get("views", 6)
 COMEBIN_EXTRA = COMEBIN_CFG.get("extra", "")
+
+
+def binning_gate_passed(sample):
+    """Return True if `sample`'s assembly meets the contig count/length
+    threshold required to proceed with binning (see checkpoint
+    assembly_binning_gate in rules/assembly.smk).
+
+    Triggers (re-)evaluation of the assembly_binning_gate checkpoint for
+    this sample, which forces the DAG to wait for the assembly and gate
+    check to complete before deciding whether binning-related targets
+    should be requested at all.
+    """
+    if not BINNING_ENABLED:
+        return False
+    gate_file = checkpoints.assembly_binning_gate.get(sample=sample).output.gate
+    with open(gate_file) as fh:
+        return fh.readline().strip() == "PASS"
+
+
+def binning_samples():
+    """Samples whose assemblies pass the binning gate."""
+    return [s for s in SAMPLES if binning_gate_passed(s)]
 
 # -------------------------------------------------------------------------
 # DAS Tool dynamic helpers

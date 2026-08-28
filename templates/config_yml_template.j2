@@ -158,6 +158,13 @@ assembly:
   # Additional arguments.
   extra: "{{ assembly_extra }}"
 
+  # Post-assembly binning gate: an assembly must have at least
+  # min_contigs_for_binning contigs of at least min_contig_length_for_binning
+  # bp, otherwise all binning-related steps are skipped for that sample
+  # instead of failing the workflow.
+  min_contigs_for_binning: {{ assembly_min_contigs_for_binning }}
+  min_contig_length_for_binning: {{ assembly_min_contig_length_for_binning }}
+
 
 # =============================================================================
 # 8. Assembly quality control

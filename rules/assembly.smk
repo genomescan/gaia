@@ -27,6 +27,31 @@ rule metaflye_assemble:
 
 
 # -------------------------------------------------------------------------
+# Binning gate: check contig count/length right after assembly
+# -------------------------------------------------------------------------
+# If the assembly does not have at least BINNING_GATE_MIN_CONTIGS contigs of
+# at least BINNING_GATE_MIN_CONTIG_LENGTH bp, all subsequent binning steps
+# are skipped cleanly for this sample (see binning_gate_passed() in
+# rules/common.smk).
+checkpoint assembly_binning_gate:
+    input:
+        assembly_info=assembly_path("MetaFlye", "{sample}", "assembly_info.txt")
+    output:
+        gate=assembly_path("MetaFlye", "{sample}", "binning_gate.txt")
+    params:
+        min_length=BINNING_GATE_MIN_CONTIG_LENGTH,
+        min_contigs=BINNING_GATE_MIN_CONTIGS
+    shell:
+        r"""
+        python {SCRIPTS_DIR}/check_contig_threshold.py \
+          --assembly-info {input.assembly_info} \
+          --min-length {params.min_length} \
+          --min-contigs {params.min_contigs} \
+          --output {output.gate}
+        """
+
+
+# -------------------------------------------------------------------------
 # Assembly QC: optional MetaQUAST
 # -------------------------------------------------------------------------
 rule metaquast_assembly:
