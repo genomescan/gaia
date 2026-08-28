@@ -345,6 +345,51 @@
       display: block;
     }
 
+    .workflow-image-wrap {
+      position: relative;
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid var(--nv-border);
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .workflow-image-wrap .workflow-base {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .workflow-hotspots {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .workflow-hotspots .hs {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .workflow-hotspots .hs circle {
+      fill: rgba(0,0,0,0);
+      stroke: rgba(0,0,0,0);
+      stroke-width: 2;
+      transition: fill 0.12s ease, stroke 0.12s ease;
+    }
+
+    .workflow-hotspots .hs:hover circle,
+    .workflow-hotspots .hs:focus circle,
+    .workflow-hotspots .hs:focus-visible circle {
+      fill: rgba(66,133,244,.20);
+      stroke: rgba(66,133,244,.9);
+    }
+
     .sample-nav {
       margin: 26px 0 18px;
     }
@@ -649,9 +694,39 @@
     <div class="panel workflow-card">
       <h2 class="panel-title h5">
         Pipeline overview
-        <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline stage, matching the legend below.</span></span>
+        <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline module. Connections indicate data flow between steps.</span></span>
       </h2>
-      {% if workflow_diagram and workflow_diagram.nodes %}
+      {% if workflow_image %}
+        <div class="workflow-image-wrap">
+          <img class="workflow-base" src="{{ workflow_image }}" alt="Pipeline workflow"/>
+          <svg class="workflow-hotspots" viewBox="0 0 821 821" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Workflow with interactive node hotspots">
+            <g class="hs" tabindex="0"><title>NanoPlot + nanoQC (Raw)</title><circle cx="194" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>minimap2 + samtools</title><circle cx="305" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Chopper</title><circle cx="415" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Filtlong</title><circle cx="525" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>NanoPlot + nanoQC (Filtered)</title><circle cx="635" cy="260" r="14"/></g>
+
+            <g class="hs" tabindex="0"><title>coverage/depth calculation</title><circle cx="415" cy="350" r="14"/></g>
+            <g class="hs" tabindex="0"><title>metaFlye</title><circle cx="525" cy="388" r="14"/></g>
+            <g class="hs" tabindex="0"><title>metaQUAST</title><circle cx="470" cy="465" r="14"/></g>
+
+            <g class="hs" tabindex="0"><title>SemiBin2</title><circle cx="305" cy="360" r="14"/></g>
+            <g class="hs" tabindex="0"><title>MetaBAT2</title><circle cx="305" cy="390" r="14"/></g>
+            <g class="hs" tabindex="0"><title>COMEBin</title><circle cx="305" cy="420" r="14"/></g>
+
+            <g class="hs" tabindex="0"><title>ACR</title><circle cx="100" cy="540" r="14"/></g>
+            <g class="hs" tabindex="0"><title>dRep / EukCC</title><circle cx="100" cy="615" r="14"/></g>
+            <g class="hs" tabindex="0"><title>BAT</title><circle cx="100" cy="695" r="14"/></g>
+
+            <g class="hs" tabindex="0"><title>DAS Tool</title><circle cx="220" cy="540" r="14"/></g>
+            <g class="hs" tabindex="0"><title>CheckM2</title><circle cx="220" cy="615" r="14"/></g>
+            <g class="hs" tabindex="0"><title>GTDB-tk</title><circle cx="220" cy="695" r="14"/></g>
+
+            <g class="hs" tabindex="0"><title>Kraken2</title><circle cx="635" cy="465" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Centrifuger</title><circle cx="635" cy="540" r="14"/></g>
+          </svg>
+        </div>
+      {% elif workflow_diagram and workflow_diagram.nodes %}
         <div class="tag-list workflow-legend">
           {% for cat in workflow_diagram.legend %}
           <span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
@@ -679,8 +754,6 @@
             {% endfor %}
           </svg>
         </div>
-      {% elif workflow_image %}
-        <img src="{{ workflow_image }}" alt="Pipeline workflow"/>
       {% else %}
         <div class="empty-state">No workflow overview information was available for embedding.</div>
       {% endif %}
@@ -692,7 +765,7 @@
     <div class="section-kicker">Genome reconstruction</div>
     <h2 class="panel-title h5">
       Assembly overview
-      <span class="help-icon">?<span class="help-tooltip">Run-level summary of MetaFlye assembly quality across all samples, collapsed into a single overview instead of per-sample sections to keep the report concise. N50 and related metrics come from MetaQUAST when available, or are otherwise computed directly from the assembly contigs.</span></span>
+      <span class="help-icon">?<span class="help-tooltip">Run-level summary of MetaFlye assembly quality across all samples, collapsed into a single overview instead of per-sample sections to keep the report concise and easier to compare.</span></span>
     </h2>
     {% if assembly_overview.rows %}
     <div class="metrics-grid mb-3">
@@ -748,7 +821,7 @@
     <div class="section-kicker">Genome reconstruction</div>
     <h2 class="panel-title h5">
       Binning overview
-      <span class="help-icon">?<span class="help-tooltip">Run-level summary of genome bins recovered per sample, collapsed across all samples instead of shown per sample. Samples for which binning was not performed (disabled, or skipped because the assembly did not pass the post-assembly binning gate) are listed explicitly below.</span></span>
+      <span class="help-icon">?<span class="help-tooltip">Run-level summary of genome bins recovered per sample, collapsed across all samples instead of shown per sample. Samples for which binning was skipped are listed below.</span></span>
     </h2>
     <div class="metrics-grid mb-3">
       <div class="metric">
@@ -863,7 +936,7 @@
         <div class="section-kicker">Host removal</div>
         <h3 class="section-title h5">
           Read partitioning
-          <span class="help-icon">?<span class="help-tooltip">Proportion of sequencing reads mapped to the host genome versus non-host (microbial) reads. Non-host reads proceed to downstream taxonomic and genomic analyses.</span></span>
+          <span class="help-icon">?<span class="help-tooltip">Proportion of sequencing reads mapped to the host genome versus non-host (microbial) reads. Non-host reads proceed to downstream taxonomy and assembly steps.</span></span>
         </h3>
         <div id="host-removal-plot-{{ sd.sample }}" class="plot"></div>
       </section>
@@ -889,7 +962,7 @@
         <div class="section-kicker">Read quality</div>
         <h3 class="section-title h5">
           NanoPlot metrics – raw vs filtered
-          <span class="help-icon">?<span class="help-tooltip">Summary of read-level quality and length statistics produced by NanoPlot, comparing raw (pre-filtering) and filtered reads. Higher values for quality and length indicate better sequencing output.</span></span>
+          <span class="help-icon">?<span class="help-tooltip">Summary of read-level quality and length statistics produced by NanoPlot, comparing raw (pre-filtering) and filtered reads. Higher values in filtered read quality indicate successful preprocessing.</span></span>
         </h3>
         <div class="table-responsive mb-3">
           <table class="table table-sm align-middle">
@@ -953,7 +1026,7 @@
         <div class="section-kicker">Taxonomy</div>
         <h3 class="section-title h5">
           Centrifuger top species
-          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Centrifuger. The table shows the most abundant species identified in the sample, ranked by read count. The percentage column is Centrifuger's abundance estimate: the proportion of this genome normalized by its genomic length, not a raw share of classified reads.</span></span>
+          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Centrifuger. The table shows the most abundant species identified in the sample, ranked by reads with genome-length normalization.</span></span>
         </h3>
         <div class="table-responsive">
           <table class="table table-sm align-middle">
@@ -998,149 +1071,3 @@
       .slice(0, 10);
     Plotly.newPlot(containerId, [{
       type: 'bar',
-      orientation: 'h',
-      x: topRows.map(function(r) { return Number(r.reads || 0); }),
-      y: topRows.map(function(r) {
-        var pct = Number(r.percent || 0);
-        return r.name + ' (' + pct.toFixed(1) + '%)';
-      }),
-      customdata: topRows.map(function(r) { return Number(r.percent || 0); }),
-      marker: {color: barColor, line: {color: barColor, width: 1}},
-      hovertemplate: '%{y}<br>Reads: %{x:,}<br>Percentage: %{customdata:.1f}%<extra></extra>'
-    }], Object.assign({}, plotTheme, {
-      title: {text: chartTitle + ' (Top 10)', font: {size: 14, color: '#1d2840'}},
-      margin: {l: 230, r: 20, t: 10, b: 45},
-      xaxis: {
-        title: 'Reads',
-        gridcolor: '#d9e3f0',
-        zerolinecolor: '#d9e3f0'
-      },
-      yaxis: {automargin: true, autorange: 'reversed'}
-    }), {responsive: true, displayModeBar: false});
-  }
-
-  {% for sd in samples_data %}
-  (function() {
-    var sampleId = {{ sd.sample | tojson }};
-    var kraken2Species = {{ sd.kraken2_species | tojson }};
-    var centrifugerSpecies = {{ sd.centrifuger_species | tojson }};
-    var hostPlotData = {% if sd.host_plot_data %}{{ sd.host_plot_data | tojson }}{% else %}null{% endif %};
-
-    if (hostPlotData) {
-      Plotly.newPlot('host-removal-plot-' + sampleId, [{
-        type: 'pie',
-        labels: hostPlotData.labels,
-        values: hostPlotData.values,
-        hole: 0.62,
-        marker: {colors: ['#10164f', '#19b6d4']},
-        textinfo: 'label+percent',
-        hovertemplate: '%{label}: %{value:,} (%{percent})<extra></extra>'
-      }], Object.assign({}, plotTheme, {
-        margin: {l: 20, r: 20, t: 10, b: 10},
-        showlegend: true,
-        legend: {orientation: 'h', y: -0.1}
-      }), {responsive: true, displayModeBar: false});
-    }
-
-    renderHorizontalBar('kraken2-plot-' + sampleId, kraken2Species, '#19b6d4', 'Kraken2 abundance');
-    renderHorizontalBar('centrifuger-plot-' + sampleId, centrifugerSpecies, '#10164f', 'Centrifuger abundance');
-
-    (function() {
-      var rawMetrics = {{ sd.nanoplot_raw | tojson }};
-      var filteredMetrics = {{ sd.nanoplot_filtered | tojson }};
-      var chartEl = document.getElementById('nanoplot-chart-' + sampleId);
-      if (!chartEl || (!Object.keys(rawMetrics).length && !Object.keys(filteredMetrics).length)) return;
-
-      // Length/yield metrics (primary chart – values in bp / counts)
-      var lengthKeys = [
-        ['mean_read_length',   'Mean read length (bp)'],
-        ['median_read_length', 'Median read length (bp)'],
-        ['read_length_n50',    'N50 (bp)']
-      ];
-      var lengthLabels = [], lengthRaw = [], lengthFilt = [];
-      lengthKeys.forEach(function(kl) {
-        var key = kl[0], label = kl[1];
-        if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
-          lengthLabels.push(label);
-          lengthRaw.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
-          lengthFilt.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
-        }
-      });
-      if (lengthLabels.length) {
-        Plotly.newPlot('nanoplot-chart-' + sampleId, [
-          {
-            name: 'Raw',
-            type: 'bar',
-            x: lengthLabels,
-            y: lengthRaw,
-            marker: {color: '#19b6d4'},
-            hovertemplate: '%{x}: %{y:,}<extra>Raw</extra>'
-          },
-          {
-            name: 'Filtered',
-            type: 'bar',
-            x: lengthLabels,
-            y: lengthFilt,
-            marker: {color: '#10164f'},
-            hovertemplate: '%{x}: %{y:,}<extra>Filtered</extra>'
-          }
-        ], Object.assign({}, plotTheme, {
-          barmode: 'group',
-          title: {text: 'NanoPlot: Read length metrics – raw vs filtered', font: {size: 14, color: '#1d2840'}},
-          margin: {l: 70, r: 20, t: 40, b: 80},
-          xaxis: {tickangle: -20, automargin: true},
-          yaxis: {title: 'Length (bp)', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0'},
-          legend: {orientation: 'h', y: -0.25},
-          showlegend: true
-        }), {responsive: true, displayModeBar: false});
-      }
-
-      // Quality metrics (separate chart – Phred Q-score scale, ~0–40)
-      var qualKeys = [
-        ['mean_read_quality',   'Mean quality (Q)'],
-        ['median_read_quality', 'Median quality (Q)']
-      ];
-      var qualLabels = [], qualRaw = [], qualFilt = [];
-      qualKeys.forEach(function(kl) {
-        var key = kl[0], label = kl[1];
-        if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
-          qualLabels.push(label);
-          qualRaw.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
-          qualFilt.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
-        }
-      });
-      var qualEl = document.getElementById('nanoplot-quality-chart-' + sampleId);
-      if (qualEl && qualLabels.length) {
-        Plotly.newPlot('nanoplot-quality-chart-' + sampleId, [
-          {
-            name: 'Raw',
-            type: 'bar',
-            x: qualLabels,
-            y: qualRaw,
-            marker: {color: '#19b6d4'},
-            hovertemplate: '%{x}: %{y:.2f}<extra>Raw</extra>'
-          },
-          {
-            name: 'Filtered',
-            type: 'bar',
-            x: qualLabels,
-            y: qualFilt,
-            marker: {color: '#10164f'},
-            hovertemplate: '%{x}: %{y:.2f}<extra>Filtered</extra>'
-          }
-        ], Object.assign({}, plotTheme, {
-          barmode: 'group',
-          title: {text: 'NanoPlot: Read quality (Phred Q-score) – raw vs filtered', font: {size: 14, color: '#1d2840'}},
-          margin: {l: 70, r: 20, t: 40, b: 80},
-          xaxis: {automargin: true},
-          yaxis: {title: 'Phred quality score (Q)', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0', rangemode: 'tozero'},
-          legend: {orientation: 'h', y: -0.25},
-          showlegend: true
-        }), {responsive: true, displayModeBar: false});
-      }
-    })();
-  })();
-  {% endfor %}
-</script>
-</body>
-</html>
