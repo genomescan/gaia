@@ -96,7 +96,7 @@ echo "[INFO] Flagstat summary written to: $FLAGSTAT"
 # Extract unmapped reads to FASTQ.GZ
 echo "[INFO] Extracting unmapped (non-host) reads to FASTQ..."
 samtools fastq -f 4 "$BAM" \
-  | gzip -c > "$NOHOST_FASTQ_GZ"
+  | pigz -p "$THREADS" -c > "$NOHOST_FASTQ_GZ"
 echo "[INFO] Non-host FASTQ written to: $NOHOST_FASTQ_GZ"
 
 echo "[INFO] Host removal completed successfully."

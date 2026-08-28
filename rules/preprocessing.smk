@@ -83,12 +83,12 @@ rule chopper_filter:
         q_threshold=P["chopper"]["quality_threshold"],
     shell:
         r"""
-        gunzip -c {input.reads} \
+        pigz -dc {input.reads} \
           | chopper \
               --threads {threads} \
               --minlength {params.min_length} \
               --quality {params.q_threshold} \
-          | gzip -c > {output}
+          | pigz -p {threads} -c > {output}
         """
 
 
@@ -113,6 +113,6 @@ rule filtlong_filter:
             --min_length {params.min_length} \
             --keep_percent {params.keep_percent} \
             {input.reads} \
-        | gzip -c > {output}
+        | pigz -p {threads} -c > {output}
         """
 
