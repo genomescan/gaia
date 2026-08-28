@@ -74,17 +74,16 @@ rule render_run_report:
             report_path("{sample}", "{sample}.nanoplot_metrics.json"),
             sample=SAMPLES
         ),
-        genome_summaries=expand(
-            report_path("{sample}", "{sample}.genome_summary.tsv"),
-            sample=SAMPLES
+        # Only samples that passed the post-assembly binning gate have
+        # genome/pipeline summaries (see binning_gate_passed() in common.smk).
+        genome_summaries=(
+            lambda wc: [report_path(s, f"{s}.genome_summary.tsv") for s in binning_samples()]
         ) if RUN_ASSEMBLY else [],
-        genome_inventories=expand(
-            report_path("{sample}", "{sample}.genome_inventory.tsv"),
-            sample=SAMPLES
+        genome_inventories=(
+            lambda wc: [report_path(s, f"{s}.genome_inventory.tsv") for s in binning_samples()]
         ) if RUN_ASSEMBLY else [],
-        pipeline_summaries=expand(
-            report_path("{sample}", "{sample}.pipeline_summary.tsv"),
-            sample=SAMPLES
+        pipeline_summaries=(
+            lambda wc: [report_path(s, f"{s}.pipeline_summary.tsv") for s in binning_samples()]
         ) if RUN_PROFILE and RUN_ASSEMBLY else [],
         host_stats=expand(
             preprocessing_path("{sample}", "{sample}.host_removal_stats.json"),

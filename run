@@ -56,6 +56,8 @@ DEFAULTS = {
     "assembly_executable": "flye",
     "assembly_read_type": "--nano-raw",
     "assembly_extra": "",
+    "assembly_min_contigs_for_binning": 10,
+    "assembly_min_contig_length_for_binning": 1500,
     "assembly_qc_metaquast": False,
     "assembly_qc_metaquast_references": "",
     "assembly_qc_extra": "--min-contig 1000 --fragmented",

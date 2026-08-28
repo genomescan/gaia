@@ -162,6 +162,14 @@ assembly:
   # Additional arguments.
   extra: ""
 
+  # Post-assembly binning gate: an assembly must have at least
+  # min_contigs_for_binning contigs of at least min_contig_length_for_binning
+  # bp, otherwise all binning-related steps (mapping/depth, MetaBAT2,
+  # SemiBin2, COMEBin, and all downstream refinement/reporting) are skipped
+  # for that sample instead of failing the workflow.
+  min_contigs_for_binning: 10
+  min_contig_length_for_binning: 1500
+
 
 # =============================================================================
 # 8. Assembly quality control

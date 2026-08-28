@@ -1,9 +1,11 @@
 # -------------------------------------------------------------------------
 # Final outputs
 # -------------------------------------------------------------------------
-rule all:
-    default_target: True
-    input:
+# Wrapped in a function (rather than a static list) because some entries
+# depend on the assembly_binning_gate checkpoint via binning_samples(),
+# which can only be evaluated lazily once assembly has completed.
+def all_targets(wildcards):
+    return [
         # -----------------------------------------------------------------
         # Versions manifest (written to Reports/ by run wrapper)
         # -----------------------------------------------------------------
@@ -101,167 +103,171 @@ rule all:
             if ASSEMBLY_ENABLED and METAQUAST_ENABLED else []
         ),
 
-        # Mapping and depth
+        # Mapping and depth (only for samples whose assembly passes the
+        # post-assembly binning gate; mapping/depth are only used for binning)
         *(
-            expand(alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam"), sample=SAMPLES)
+            [alignment_path(s, f"{s}.vs_assembly.sorted.bam") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED else []
         ),
         *(
-            expand(alignment_path("{sample}", "{sample}.vs_assembly.sorted.bam.bai"), sample=SAMPLES)
+            [alignment_path(s, f"{s}.vs_assembly.sorted.bam.bai") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED else []
         ),
         *(
-            expand(alignment_path("{sample}", "{sample}.depth.txt"), sample=SAMPLES)
+            [alignment_path(s, f"{s}.depth.txt") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED else []
         ),
 
-        # Binning
+        # Binning (skipped for samples whose assembly does not have enough
+        # contigs of sufficient length, per the post-assembly binning gate)
         *(
-            expand(binning_path("MetaBAT2", "{sample}", ".done"), sample=SAMPLES)
+            [binning_path("MetaBAT2", s, ".done") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and "metabat2" in BINNING_TOOLS else []
         ),
         *(
-            expand(binning_path("SemiBin2", "{sample}", ".done"), sample=SAMPLES)
+            [binning_path("SemiBin2", s, ".done") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and "semibin2" in BINNING_TOOLS else []
         ),
         *(
-            expand(binning_path("COMEBin", "{sample}", ".done"), sample=SAMPLES)
+            [binning_path("COMEBin", s, ".done") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and "comebin" in BINNING_TOOLS else []
         ),
 
         # Collected bins
         *(
-            expand(binning_path("AllBins", "{sample}", ".done"), sample=SAMPLES)
+            [binning_path("AllBins", s, ".done") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and len(BINNING_TOOLS) > 0 else []
         ),
 
         # Normalized contig-to-bin tables
         *(
-            expand(binning_path("Normalized", "{sample}", "metabat2.contig2bin.tsv"), sample=SAMPLES)
+            [binning_path("Normalized", s, "metabat2.contig2bin.tsv") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and "metabat2" in BINNING_TOOLS else []
         ),
         *(
-            expand(binning_path("Normalized", "{sample}", "semibin2.contig2bin.tsv"), sample=SAMPLES)
+            [binning_path("Normalized", s, "semibin2.contig2bin.tsv") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and "semibin2" in BINNING_TOOLS else []
         ),
         *(
-            expand(binning_path("Normalized", "{sample}", "comebin.contig2bin.tsv"), sample=SAMPLES)
+            [binning_path("Normalized", s, "comebin.contig2bin.tsv") for s in binning_samples()]
             if ASSEMBLY_ENABLED and MAPPING_ENABLED and BINNING_ENABLED and "comebin" in BINNING_TOOLS else []
         ),
 
-        # Prokaryotic refinement
+        # Prokaryotic refinement (skipped for samples that did not pass the
+        # post-assembly binning gate, since binning outputs are unavailable)
         *(
-            expand(refinement_path("Prokaryotic", "DASTool", "{sample}", "{sample}_DASTool_summary.tsv"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "DASTool", s, f"{s}_DASTool_summary.tsv") for s in binning_samples()]
             if DASTOOL_ENABLED else []
         ),
         *(
-            expand(refinement_path("Prokaryotic", "DASTool", "{sample}", "{sample}_DASTool_contig2bin.tsv"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "DASTool", s, f"{s}_DASTool_contig2bin.tsv") for s in binning_samples()]
             if DASTOOL_ENABLED else []
         ),
         *(
-            expand(refinement_path("Prokaryotic", "DASTool", "{sample}", "{sample}_DASTool_bins"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "DASTool", s, f"{s}_DASTool_bins") for s in binning_samples()]
             if DASTOOL_ENABLED else []
         ),
         *(
-            expand(refinement_path("Prokaryotic", "DASTool", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "DASTool", s, ".done") for s in binning_samples()]
             if DASTOOL_ENABLED else []
         ),
 
         # Prokaryotic quality estimation
         *(
-            expand(refinement_path("Prokaryotic", "CheckM2", "{sample}", "quality_report.tsv"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "CheckM2", s, "quality_report.tsv") for s in binning_samples()]
             if CHECKM2_ENABLED else []
         ),
         *(
-            expand(refinement_path("Prokaryotic", "CheckM2", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "CheckM2", s, ".done") for s in binning_samples()]
             if CHECKM2_ENABLED else []
         ),
 
         # Prokaryotic classification
         *(
-            expand(refinement_path("Prokaryotic", "GTDBTk", "{sample}", "gtdbtk.bac120.summary.tsv"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "GTDBTk", s, "gtdbtk.bac120.summary.tsv") for s in binning_samples()]
             if GTDBTK_ENABLED else []
         ),
         *(
-            expand(refinement_path("Prokaryotic", "GTDBTk", "{sample}", "gtdbtk.ar53.summary.tsv"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "GTDBTk", s, "gtdbtk.ar53.summary.tsv") for s in binning_samples()]
             if GTDBTK_ENABLED else []
         ),
         *(
-            expand(refinement_path("Prokaryotic", "GTDBTk", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Prokaryotic", "GTDBTk", s, ".done") for s in binning_samples()]
             if GTDBTK_ENABLED else []
         ),
 
         # Eukaryotic refinement
         *(
-            expand(refinement_path("Eukaryotic", "ACR", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "ACR", s, ".done") for s in binning_samples()]
             if ACR_ENABLED else []
         ),
         *(
-            expand(refinement_path("Eukaryotic", "EukBins", "{sample}", "kept_bins.tsv"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "EukBins", s, "kept_bins.tsv") for s in binning_samples()]
             if ACR_ENABLED else []
         ),
         *(
-            expand(refinement_path("Eukaryotic", "EukBins", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "EukBins", s, ".done") for s in binning_samples()]
             if ACR_ENABLED else []
         ),
 
         # Eukaryotic dereplication
         *(
-            expand(refinement_path("Eukaryotic", "dRep", "{sample}", "data_tables", "Cdb.csv"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "dRep", s, "data_tables", "Cdb.csv") for s in binning_samples()]
             if ACR_ENABLED and DREP_ENABLED else []
         ),
         *(
-            expand(refinement_path("Eukaryotic", "dRep", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "dRep", s, ".done") for s in binning_samples()]
             if ACR_ENABLED and DREP_ENABLED else []
         ),
 
         # Eukaryotic quality estimation
         *(
-            expand(refinement_path("Eukaryotic", "EukCC", "{sample}", "eukcc.csv"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "EukCC", s, "eukcc.csv") for s in binning_samples()]
             if ACR_ENABLED and EUKCC_ENABLED else []
         ),
         *(
-            expand(refinement_path("Eukaryotic", "EukCC", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "EukCC", s, ".done") for s in binning_samples()]
             if ACR_ENABLED and EUKCC_ENABLED else []
         ),
 
         # Final eukaryotic bin selection
         *(
-            expand(refinement_path("Eukaryotic", "FinalBins", "{sample}", "selected_bins.tsv"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "FinalBins", s, "selected_bins.tsv") for s in binning_samples()]
             if ACR_ENABLED and DREP_ENABLED and EUKCC_ENABLED else []
         ),
         *(
-            expand(refinement_path("Eukaryotic", "FinalBins", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "FinalBins", s, ".done") for s in binning_samples()]
             if ACR_ENABLED and DREP_ENABLED and EUKCC_ENABLED else []
         ),
 
         # Eukaryotic bin classification
         *(
-            expand(refinement_path("Eukaryotic", "BAT", "{sample}", "bin2classification.txt"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "BAT", s, "bin2classification.txt") for s in binning_samples()]
             if ACR_ENABLED and DREP_ENABLED and EUKCC_ENABLED and BAT_ENABLED else []
         ),
         *(
-            expand(refinement_path("Eukaryotic", "BAT", "{sample}", ".done"), sample=SAMPLES)
+            [refinement_path("Eukaryotic", "BAT", s, ".done") for s in binning_samples()]
             if ACR_ENABLED and DREP_ENABLED and EUKCC_ENABLED and BAT_ENABLED else []
         ),
 
-        # Genome-level final reports
+        # Genome-level final reports (only for samples that passed the
+        # binning gate; a skipped sample has no bins to report on)
         *(
-            expand(report_path("{sample}", "{sample}.genome_inventory.tsv"), sample=SAMPLES)
+            [report_path(s, f"{s}.genome_inventory.tsv") for s in binning_samples()]
             if RUN_ASSEMBLY else []
         ),
         *(
-            expand(report_path("{sample}", "{sample}.genome_summary.tsv"), sample=SAMPLES)
+            [report_path(s, f"{s}.genome_summary.tsv") for s in binning_samples()]
             if RUN_ASSEMBLY else []
         ),
         *(
-            expand(report_path("{sample}", "{sample}.bin_trace.tsv"), sample=SAMPLES)
+            [report_path(s, f"{s}.bin_trace.tsv") for s in binning_samples()]
             if RUN_ASSEMBLY else []
         ),
 
         # Combined pipeline summary
         *(
-            expand(report_path("{sample}", "{sample}.pipeline_summary.tsv"), sample=SAMPLES)
+            [report_path(s, f"{s}.pipeline_summary.tsv") for s in binning_samples()]
             if RUN_PROFILE and RUN_ASSEMBLY else []
         ),
 
@@ -271,3 +277,10 @@ rule all:
             if TAXONOMY_ENABLED else []
         ),
         os.path.join("Reports", "report.html")
+    ]
+
+
+rule all:
+    default_target: True
+    input:
+        all_targets
