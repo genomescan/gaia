@@ -31,7 +31,11 @@ From: ubuntu:22.04
         python3 python3-pip
     rm -rf /var/lib/apt/lists/*
 
-    pip3 install --no-cache-dir NanoPlot
+    # Pin plotly to a release still exposing plotly.figure_factory.create_2d_density,
+    # which NanoPlot 1.47.2 relies on. plotly>=7.0.0 removed that helper, which makes
+    # NanoPlot fail at runtime with:
+    #   AttributeError: module 'plotly.figure_factory' has no attribute 'create_2d_density'
+    pip3 install --no-cache-dir "NanoPlot==1.47.2" "plotly>=6.1.1,<7.0.0"
 
     cd /tmp
     wget -qO nanoQC-master.zip https://github.com/wdecoster/nanoQC/archive/refs/heads/master.zip
