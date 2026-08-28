@@ -651,7 +651,7 @@
         Pipeline overview
         <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline stage, matching the legend below.</span></span>
       </h2>
-      {% if workflow_diagram and workflow_diagram.nodes %}
+      {% if workflow_image %}
         <div class="tag-list workflow-legend">
           {% for cat in workflow_diagram.legend %}
           <span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
@@ -679,7 +679,7 @@
             {% endfor %}
           </svg>
         </div>
-      {% elif workflow_image %}
+      {% elif workflow_diagram and workflow_diagram.nodes %}
         <img src="{{ workflow_image }}" alt="Pipeline workflow"/>
       {% else %}
         <div class="empty-state">No workflow overview information was available for embedding.</div>
