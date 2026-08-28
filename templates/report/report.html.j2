@@ -700,30 +700,30 @@
         <div class="workflow-image-wrap">
           <img class="workflow-base" src="{{ workflow_image }}" alt="Pipeline workflow"/>
           <svg class="workflow-hotspots" viewBox="0 0 821 821" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Workflow with interactive node hotspots">
-            <g class="hs" tabindex="0"><title>NanoPlot + nanoQC (Raw)</title><circle cx="194" cy="260" r="14"/></g>
-            <g class="hs" tabindex="0"><title>minimap2 + samtools</title><circle cx="305" cy="260" r="14"/></g>
-            <g class="hs" tabindex="0"><title>Chopper</title><circle cx="415" cy="260" r="14"/></g>
-            <g class="hs" tabindex="0"><title>Filtlong</title><circle cx="525" cy="260" r="14"/></g>
-            <g class="hs" tabindex="0"><title>NanoPlot + nanoQC (Filtered)</title><circle cx="635" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Generate quality-control metrics for raw sequencing reads.</title><circle cx="194" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Align reads to the host reference and process alignment files.</title><circle cx="305" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Trim/filter reads by quality score and minimum length.</title><circle cx="415" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Filter reads to retain the highest-quality subset for downstream analysis.</title><circle cx="525" cy="260" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Generate quality-control metrics for filtered reads.</title><circle cx="635" cy="260" r="14"/></g>
 
-            <g class="hs" tabindex="0"><title>coverage/depth calculation</title><circle cx="415" cy="350" r="14"/></g>
-            <g class="hs" tabindex="0"><title>metaFlye</title><circle cx="525" cy="388" r="14"/></g>
-            <g class="hs" tabindex="0"><title>metaQUAST</title><circle cx="470" cy="465" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Estimate read coverage/depth to support assembly and binning.</title><circle cx="415" cy="350" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Assemble long reads into contigs.</title><circle cx="525" cy="388" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Assess assembly quality statistics.</title><circle cx="470" cy="465" r="14"/></g>
 
-            <g class="hs" tabindex="0"><title>SemiBin2</title><circle cx="305" cy="360" r="14"/></g>
-            <g class="hs" tabindex="0"><title>MetaBAT2</title><circle cx="305" cy="390" r="14"/></g>
-            <g class="hs" tabindex="0"><title>COMEBin</title><circle cx="305" cy="420" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Recover metagenome bins using graph-based binning.</title><circle cx="305" cy="360" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Recover metagenome bins using tetranucleotide composition and abundance.</title><circle cx="305" cy="390" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Recover metagenome bins using coverage/composition clustering.</title><circle cx="305" cy="420" r="14"/></g>
 
-            <g class="hs" tabindex="0"><title>ACR</title><circle cx="100" cy="540" r="14"/></g>
-            <g class="hs" tabindex="0"><title>dRep / EukCC</title><circle cx="100" cy="615" r="14"/></g>
-            <g class="hs" tabindex="0"><title>BAT</title><circle cx="100" cy="695" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Refine eukaryotic bins for completeness and quality.</title><circle cx="100" cy="540" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Dereplicate and quality-check eukaryotic bins.</title><circle cx="100" cy="615" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Assign taxonomy to eukaryotic bins.</title><circle cx="100" cy="695" r="14"/></g>
 
-            <g class="hs" tabindex="0"><title>DAS Tool</title><circle cx="220" cy="540" r="14"/></g>
-            <g class="hs" tabindex="0"><title>CheckM2</title><circle cx="220" cy="615" r="14"/></g>
-            <g class="hs" tabindex="0"><title>GTDB-tk</title><circle cx="220" cy="695" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Merge and refine prokaryotic bins from multiple binning methods.</title><circle cx="220" cy="540" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Estimate prokaryotic bin completeness and contamination.</title><circle cx="220" cy="615" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Assign taxonomy to prokaryotic bins.</title><circle cx="220" cy="695" r="14"/></g>
 
-            <g class="hs" tabindex="0"><title>Kraken2</title><circle cx="635" cy="465" r="14"/></g>
-            <g class="hs" tabindex="0"><title>Centrifuger</title><circle cx="635" cy="540" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Classify reads taxonomically with k-mer matching.</title><circle cx="635" cy="465" r="14"/></g>
+            <g class="hs" tabindex="0"><title>Classify reads taxonomically using genome-length-normalized abundance estimates.</title><circle cx="635" cy="540" r="14"/></g>
           </svg>
         </div>
       {% elif workflow_diagram and workflow_diagram.nodes %}
