@@ -246,6 +246,105 @@
       background: #fff;
     }
 
+    /* Interactive workflow diagram (inline SVG, see report.html.j2 +
+       render_report.py WORKFLOW_NODES/WORKFLOW_EDGES for the underlying
+       data). Hover/focus a tool node to reveal its tooltip. */
+    .workflow-legend {
+      margin-bottom: 14px;
+    }
+
+    .workflow-legend .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .workflow-legend .legend-swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      display: inline-block;
+    }
+
+    .workflow-svg-wrap {
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid var(--nv-border);
+      background: #fff;
+      padding: 6px;
+    }
+
+    .workflow-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .wf-edge {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      opacity: 0.55;
+    }
+
+    .wf-node {
+      cursor: pointer;
+    }
+
+    .wf-node circle.wf-hit {
+      fill: transparent;
+    }
+
+    .wf-node circle.wf-dot {
+      stroke-width: 3;
+      fill: #fff;
+      transition: filter 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .wf-node:hover circle.wf-dot,
+    .wf-node:focus circle.wf-dot,
+    .wf-node:focus-visible circle.wf-dot {
+      stroke-width: 4;
+      filter: drop-shadow(0 2px 6px rgba(16, 22, 79, 0.35));
+    }
+
+    .wf-node:focus {
+      outline: none;
+    }
+
+    .wf-label {
+      font-size: 12px;
+      fill: var(--nv-text);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .wf-tooltip {
+      display: none;
+      background: var(--nv-navy);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 400;
+      line-height: 1.45;
+      padding: 8px 12px;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(16, 22, 79, 0.22);
+      pointer-events: none;
+    }
+
+    .wf-tooltip strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #fff;
+    }
+
+    .wf-node:hover .wf-tooltip,
+    .wf-node:focus .wf-tooltip,
+    .wf-node:focus-visible .wf-tooltip {
+      display: block;
+    }
+
     .sample-nav {
       margin: 26px 0 18px;
     }
@@ -548,11 +647,42 @@
     </div>
 
     <div class="panel workflow-card">
-      <h2 class="panel-title h5">Pipeline overview</h2>
-      {% if workflow_image %}
+      <h2 class="panel-title h5">
+        Pipeline overview
+        <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline stage, matching the legend below.</span></span>
+      </h2>
+      {% if workflow_diagram and workflow_diagram.nodes %}
+        <div class="tag-list workflow-legend">
+          {% for cat in workflow_diagram.legend %}
+          <span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
+          {% endfor %}
+        </div>
+        <div class="workflow-svg-wrap">
+          <svg class="workflow-svg" viewBox="0 0 1000 520" role="img"
+               aria-label="Interactive gaia pipeline workflow diagram. Hover or focus each tool node for details.">
+            {% for edge in workflow_diagram.edges %}
+            <line class="wf-edge" x1="{{ edge.x1 * 12 }}" y1="{{ edge.y1 * 5 }}"
+                  x2="{{ edge.x2 * 12 }}" y2="{{ edge.y2 * 5 }}" stroke="{{ edge.color }}"/>
+            {% endfor %}
+            {% for node in workflow_diagram.nodes %}
+            <g class="wf-node" tabindex="0" transform="translate({{ node.x * 12 }}, {{ node.y * 5 }})">
+              <title>{{ node.label }}: {{ node.description }}</title>
+              <circle class="wf-hit" r="20"/>
+              <circle class="wf-dot" r="9" stroke="{{ node.color }}"/>
+              <text class="wf-label" y="-16">{{ node.label }}</text>
+              <foreignObject x="-115" y="-96" width="230" height="76" overflow="visible">
+                <div xmlns="http://www.w3.org/1999/xhtml" class="wf-tooltip">
+                  <strong>{{ node.label }}</strong>{{ node.description }}
+                </div>
+              </foreignObject>
+            </g>
+            {% endfor %}
+          </svg>
+        </div>
+      {% elif workflow_image %}
         <img src="{{ workflow_image }}" alt="Pipeline workflow"/>
       {% else %}
-        <div class="empty-state">No workflow overview image was available for embedding.</div>
+        <div class="empty-state">No workflow overview information was available for embedding.</div>
       {% endif %}
     </div>
   </section>
