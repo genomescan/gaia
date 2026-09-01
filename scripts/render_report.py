@@ -464,8 +464,8 @@ def _build_gtdbtk(bac120_paths, ar53_paths):
                 except (ValueError, TypeError):
                     return "N/A"
 
-            ani = row.get("fastani_ani") or row.get("closest_placement_ani", "")
-            af = row.get("fastani_af") or row.get("closest_placement_af", "")
+            ani = row.get("closest_genome_ani") or row.get("closest_placement_ani") or row.get("fastani_ani", "")
+            af = row.get("closest_genome_af") or row.get("closest_placement_af") or row.get("fastani_af", "")
             red = row.get("red_value", "") or "N/A"
             warning = row.get("warnings", "") or "N/A"
             note = row.get("note", "") or ""
