@@ -256,12 +256,19 @@ def _round_species(rows):
 
 
 def _build_nanoplot_overview(samples_data):
-    """Build cross-sample nanoplot data for overview bar charts."""
+    """Build cross-sample nanoplot data for the overview table."""
     samples = [sd["sample"] for sd in samples_data]
-    raw = {"median_read_length": [], "read_length_n50": [], "median_read_quality": []}
-    filtered = {"median_read_length": [], "read_length_n50": [], "median_read_quality": []}
+    keys = [
+        "median_read_length",
+        "read_length_n50",
+        "median_read_quality",
+        "number_of_reads",
+        "total_bases",
+    ]
+    raw = {key: [] for key in keys}
+    filtered = {key: [] for key in keys}
     for sd in samples_data:
-        for key in raw:
+        for key in keys:
             raw[key].append(sd["nanoplot_raw"].get(key))
             filtered[key].append(sd["nanoplot_filtered"].get(key))
     return {"samples": samples, "raw": raw, "filtered": filtered}
@@ -275,7 +282,7 @@ def _build_taxonomy_overview(samples_data):
             for row in sd.get(tool_key + "_species", []):
                 species_reads[row["name"]] = species_reads.get(row["name"], 0) + row["reads"]
 
-        top_species = sorted(species_reads, key=lambda s: species_reads[s], reverse=True)[:10]
+        top_species = sorted(species_reads, key=lambda s: species_reads[s], reverse=True)[:5]
         samples = [sd["sample"] for sd in samples_data]
         has_data = any(sd.get(tool_key + "_species") for sd in samples_data)
 
@@ -435,6 +442,45 @@ def _build_binning_overview(samples, genome_summaries, binning_enabled, run_asse
     }
 
 
+def _build_gtdbtk(bac120_paths, ar53_paths):
+    """Merge bac120 + ar53 GTDB-Tk summaries across all samples into one list."""
+    rows = []
+    seen = set()
+    for path in list(bac120_paths) + list(ar53_paths):
+        for row in _read_table(path):
+            gid = row.get("user_genome", "").strip()
+            if not gid or gid in seen:
+                continue
+            seen.add(gid)
+            classification = row.get("classification", "")
+            parts = [part.strip() for part in classification.split(";") if part.strip()]
+            species = parts[-1] if parts else classification
+            if "__" in species:
+                species = species.split("__", 1)[1]
+
+            def _fmt(value, decimals=1):
+                try:
+                    return round(float(value), decimals)
+                except (ValueError, TypeError):
+                    return "N/A"
+
+            ani = row.get("fastani_ani") or row.get("closest_placement_ani", "")
+            af = row.get("fastani_af") or row.get("closest_placement_af", "")
+            red = row.get("red_value", "") or "N/A"
+            warning = row.get("warnings", "") or "N/A"
+            note = row.get("note", "") or ""
+            rows.append({
+                "user_genome": gid,
+                "classification": species,
+                "ani": _fmt(ani, 1),
+                "af": _fmt(af, 1),
+                "red": "N/A" if red in ("", "N/A", "none") else red,
+                "warnings": "N/A" if warning in ("", "none") else warning,
+                "notes": note,
+            })
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
@@ -447,6 +493,8 @@ def render(
     nanoplot_jsons,
     assembly_stats_jsons,
     genome_summaries,
+    gtdbtk_bac120s,
+    gtdbtk_ar53s,
     # genome_inventories / pipeline_summaries are accepted for CLI/Snakemake
     # rule compatibility, but are intentionally not rendered per-sample
     # anymore: genome_summaries already feeds the collapsed binning
@@ -510,6 +558,7 @@ def render(
         # Run-level overviews (collapsed across samples)
         "assembly_overview": _build_assembly_overview(samples, assembly_stats_jsons, run_assembly),
         "binning_overview": _build_binning_overview(samples, genome_summaries, binning_enabled, run_assembly),
+        "gtdbtk_rows": _build_gtdbtk(gtdbtk_bac120s, gtdbtk_ar53s),
         "nanoplot_overview": _build_nanoplot_overview(samples_data),
         "taxonomy_overview": _build_taxonomy_overview(samples_data),
         # Interactive workflow diagram (SVG nodes/edges/legend). The static
@@ -555,6 +604,10 @@ def main():
     ap.add_argument("--assembly-stats-jsons", default="",
                     help="Space-separated JSON files produced by parse_assembly_stats.py (one per sample)")
     ap.add_argument("--genome-summaries", default="")
+    ap.add_argument("--gtdbtk-bac120s", default="",
+                    help="Space-separated GTDB-Tk bac120 TSV files (one per sample)")
+    ap.add_argument("--gtdbtk-ar53s", default="",
+                    help="Space-separated GTDB-Tk ar53 TSV files (one per sample)")
     ap.add_argument("--genome-inventories", default="")
     ap.add_argument("--pipeline-summaries", default="")
     ap.add_argument("--host-stats-jsons", default="",
@@ -587,6 +640,8 @@ def main():
         nanoplot_jsons=_split_paths(args.nanoplot_jsons),
         assembly_stats_jsons=_split_paths(args.assembly_stats_jsons),
         genome_summaries=_split_paths(args.genome_summaries),
+        gtdbtk_bac120s=_split_paths(args.gtdbtk_bac120s),
+        gtdbtk_ar53s=_split_paths(args.gtdbtk_ar53s),
         genome_inventories=_split_paths(args.genome_inventories),
         pipeline_summaries=_split_paths(args.pipeline_summaries),
         host_stats_jsons=_split_paths(args.host_stats_jsons),

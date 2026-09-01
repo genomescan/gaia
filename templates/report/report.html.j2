@@ -600,7 +600,8 @@
         <span class="help-icon">?<span class="help-tooltip">Interactive workflow diagram: hover (or tab to and focus) a tool dot to see what it does in the pipeline. Colours group tools by pipeline stage, matching the legend below.</span></span>
       </h2>
 			{% if workflow_image %}
-				<div class="workflow-image-wrap">
+				<div style="max-width: 70%; margin: 0 auto;">
+					<div class="workflow-image-wrap">
 					<img src="{{ workflow_image }}" alt="Pipeline workflow" class="workflow-base"/>
 
 					<svg class="workflow-hotspots" viewBox="0 0 821 821" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Workflow with interactive node hotspots">
@@ -629,6 +630,7 @@
 						<g class="hs" tabindex="0"><title>Classify reads taxonomically with k-mer matching.</title><circle cx="635" cy="465" r="14"/></g>
 						<g class="hs" tabindex="0"><title>Classify reads taxonomically using genome-length-normalized abundance estimates.</title><circle cx="635" cy="540" r="14"/></g>
 					</svg>
+					</div>
 				</div>
 			{% elif workflow_diagram and workflow_diagram.nodes %}
 				<div class="tag-list workflow-legend">
@@ -636,7 +638,8 @@
 					<span class="tag"><span class="legend-swatch" style="background: {{ cat.color }};"></span>{{ cat.label }}</span>
 					{% endfor %}
 				</div>
-				<div class="workflow-svg-wrap">
+				<div style="max-width: 70%; margin: 0 auto;">
+					<div class="workflow-svg-wrap">
 					<svg class="workflow-svg" viewBox="0 0 1000 520" role="img"
 						   aria-label="Interactive gaia pipeline workflow diagram. Hover or focus each tool node for details.">
 						{% for edge in workflow_diagram.edges %}
@@ -657,6 +660,7 @@
 						</g>
 						{% endfor %}
 					</svg>
+					</div>
 				</div>
 			{% else %}
 				<div class="empty-state">No workflow overview information was available for embedding.</div>
@@ -782,6 +786,50 @@
   </section>
   {% endif %}
 
+  {% if gtdbtk_rows %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">
+      GTDB-Tk – MAG taxonomy
+      <span class="help-icon">?<span class="help-tooltip">Assigns objective taxonomic classifications to bacterial and archaeal genomes using the GTDB reference database. Classification is based on ANI to the closest reference genome.</span></span>
+    </h2>
+    <p class="muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+      Assigns objective taxonomic classifications to bacterial and archaeal genomes.
+      <a href="https://ecogenomics.github.io/GTDBTk/index.html" target="_blank" rel="noopener">GTDB-Tk</a>
+      &mdash; DOI: <a href="https://doi.org/10.1093/bioinformatics/btac672" target="_blank" rel="noopener">10.1093/bioinformatics/btac672</a>
+    </p>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>User genome</th>
+            <th>Classification</th>
+            <th>ANI to closest genome</th>
+            <th>AF to closest genome</th>
+            <th>RED</th>
+            <th>Warnings</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in gtdbtk_rows %}
+          <tr>
+            <td><code>{{ row.user_genome }}</code></td>
+            <td><em>{{ row.classification }}</em></td>
+            <td>{{ row.ani }}</td>
+            <td>{{ row.af }}</td>
+            <td>{{ row.red }}</td>
+            <td>{{ row.warnings }}</td>
+            <td>{{ row.notes }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size: 0.82rem; margin-top: 8px;">Showing {{ gtdbtk_rows | length }} MAG(s) across all samples.</p>
+  </section>
+  {% endif %}
+
   {% set host_rows = samples_data | selectattr("host_stats") | list %}
   {% if host_rows %}
   <section class="section-card" style="margin-top: 22px;">
@@ -813,11 +861,45 @@
     <div class="section-kicker">Read quality</div>
     <h2 class="panel-title h5">
       NanoPlot metrics – all samples
-      <span class="help-icon">?<span class="help-tooltip">Grouped bar charts compare raw and filtered read length and quality metrics across all samples. Higher values for quality and length indicate better sequencing output.</span></span>
+      <span class="help-icon">?<span class="help-tooltip">Per-sample read quality and length metrics from NanoPlot, comparing raw and filtered reads. Median length, N50, and quality are shown alongside read count and total yield. Click the summary to collapse/expand.</span></span>
     </h2>
-    <div id="nanoplot-overview-median-length" class="plot" style="min-height:340px;"></div>
-    <div id="nanoplot-overview-n50" class="plot" style="min-height:340px; margin-top:14px;"></div>
-    <div id="nanoplot-overview-quality" class="plot" style="min-height:340px; margin-top:14px;"></div>
+    <details open>
+      <summary style="cursor: pointer; font-weight: 600; color: var(--nv-navy); margin-bottom: 12px;">
+        Raw vs Filtered – {{ nanoplot_overview.samples | length }} sample(s)
+      </summary>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              <th>Median length – Raw</th><th>Median length – Filtered</th>
+              <th>N50 – Raw</th><th>N50 – Filtered</th>
+              <th>Median Qual – Raw</th><th>Median Qual – Filtered</th>
+              <th># Reads – Raw (K)</th><th># Reads – Filtered (K)</th>
+              <th>Total Bases – Raw (Mbp)</th><th>Total Bases – Filtered (Mbp)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for sample in nanoplot_overview.samples %}
+            {% set i = loop.index0 %}
+            <tr>
+              <td>{{ sample }}</td>
+              <td>{{ nanoplot_overview.raw.median_read_length[i] if nanoplot_overview.raw.median_read_length[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.median_read_length[i] if nanoplot_overview.filtered.median_read_length[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.read_length_n50[i] if nanoplot_overview.raw.read_length_n50[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.read_length_n50[i] if nanoplot_overview.filtered.read_length_n50[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.median_read_quality[i] if nanoplot_overview.raw.median_read_quality[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.median_read_quality[i] if nanoplot_overview.filtered.median_read_quality[i] is not none else "—" }}</td>
+              <td>{% if nanoplot_overview.raw.number_of_reads[i] is not none %}{{ "%.1f" | format(nanoplot_overview.raw.number_of_reads[i] | float / 1000) }}{% else %}—{% endif %}</td>
+              <td>{% if nanoplot_overview.filtered.number_of_reads[i] is not none %}{{ "%.1f" | format(nanoplot_overview.filtered.number_of_reads[i] | float / 1000) }}{% else %}—{% endif %}</td>
+              <td>{% if nanoplot_overview.raw.total_bases[i] is not none %}{{ "%.2f" | format(nanoplot_overview.raw.total_bases[i] | float / 1000000) }}{% else %}—{% endif %}</td>
+              <td>{% if nanoplot_overview.filtered.total_bases[i] is not none %}{{ "%.2f" | format(nanoplot_overview.filtered.total_bases[i] | float / 1000000) }}{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
   </section>
 
   {% if taxonomy_overview.kraken2.has_data %}
@@ -825,7 +907,7 @@
     <div class="section-kicker">Taxonomic profiling</div>
     <h2 class="panel-title h5">
       Kraken2 – relative abundance by sample
-      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 10 are grouped as "Other".</span></span>
+      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 5 are grouped as "Other".</span></span>
     </h2>
     <div id="taxonomy-kraken2-overview" class="plot" style="min-height: {{ [taxonomy_overview.kraken2.samples | length * 50 + 120, 300] | max }}px;"></div>
   </section>
@@ -836,7 +918,7 @@
     <div class="section-kicker">Taxonomic profiling</div>
     <h2 class="panel-title h5">
       Centrifuger – relative abundance by sample
-      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 10 are grouped as "Other".</span></span>
+      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 5 are grouped as "Other".</span></span>
     </h2>
     <div id="taxonomy-centrifuger-overview" class="plot" style="min-height: {{ [taxonomy_overview.centrifuger.samples | length * 50 + 120, 300] | max }}px;"></div>
   </section>
@@ -846,44 +928,6 @@
 </div>
 
 <script>
-  (function() {
-    var data = {{ nanoplot_overview | tojson }};
-    var samples = data.samples;
-    var navy = '#10164f', cyan = '#19b6d4';
-    var layout_base = {
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      font: { family: '"Segoe UI", Arial, sans-serif', color: '#1d2840' },
-      xaxis: { tickangle: -30 },
-      legend: { orientation: 'h', y: -0.25 },
-      barmode: 'group',
-      margin: { t: 40, b: 80, l: 60, r: 20 }
-    };
-
-    function makeBar(divId, title, rawKey, filtKey) {
-      if (!document.getElementById(divId)) return;
-      var traceRaw = {
-        x: samples,
-        y: data.raw[rawKey],
-        name: 'Raw',
-        type: 'bar',
-        marker: { color: navy }
-      };
-      var traceFilt = {
-        x: samples,
-        y: data.filtered[filtKey],
-        name: 'Filtered',
-        type: 'bar',
-        marker: { color: cyan }
-      };
-      Plotly.newPlot(divId, [traceRaw, traceFilt], Object.assign({}, layout_base, { title: { text: title } }), { responsive: true, displayModeBar: false });
-    }
-
-    makeBar('nanoplot-overview-median-length', 'Median read length (bp)', 'median_read_length', 'median_read_length');
-    makeBar('nanoplot-overview-n50',           'Read length N50 (bp)',    'read_length_n50',    'read_length_n50');
-    makeBar('nanoplot-overview-quality',       'Median read quality',     'median_read_quality','median_read_quality');
-  })();
-
   (function() {
     var taxData = {{ taxonomy_overview | tojson }};
     var palette = [
@@ -903,37 +947,36 @@
       var samples = d.samples;
 
       var traces = species.map(function(sp, si) {
-        var pcts = [], readCounts = [], texts = [];
+        var pcts = [], readCounts = [];
         samples.forEach(function(smp) {
           var entry = d.data[smp] && d.data[smp][sp];
-          var pct = entry ? entry.percent : 0;
-          var reads = entry ? entry.reads : 0;
-          pcts.push(pct);
-          readCounts.push(reads);
-          texts.push(sp + '<br>Reads: ' + reads.toLocaleString() + '<br>' + pct.toFixed(1) + '%');
+          pcts.push(entry ? entry.percent : 0);
+          readCounts.push(entry ? entry.reads : 0);
         });
         return {
           name: sp,
           x: pcts,
           y: samples,
+          customdata: readCounts,
           type: 'bar',
           orientation: 'h',
           marker: { color: sp === 'Other' ? otherColor : palette[si % palette.length] },
-          text: texts,
-          hovertemplate: '%{text}<extra></extra>',
+          hovertemplate: sp + ': %{customdata:,} reads (%{x:.1f}%)<extra></extra>',
           textposition: 'none'
         };
       });
 
       var layout = {
         barmode: 'stack',
+        hovermode: 'y unified',
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         font: { family: '"Segoe UI", Arial, sans-serif', color: '#1d2840' },
         xaxis: { title: 'Relative abundance (%)', range: [0, 100], ticksuffix: '%' },
         yaxis: { automargin: true },
         legend: { orientation: 'h', y: -0.25, traceorder: 'normal' },
-        margin: { t: 20, b: 120, l: 160, r: 20 }
+        margin: { t: 20, b: 120, l: 160, r: 20 },
+        hoverlabel: { bgcolor: '#10164f', font: { color: '#fff', size: 12 }, bordercolor: '#19b6d4' }
       };
       Plotly.newPlot(divId, traces, layout, { responsive: true, displayModeBar: false });
     }
