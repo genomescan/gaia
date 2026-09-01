@@ -5,8 +5,8 @@ gaia pipeline run across one or more samples.
 
 Combines:
   - Pipeline metadata (mode, samples, date)
-  - Per-sample taxonomy top-10 species (bar chart + HTML table via Plotly)
-  - Per-sample host removal and read QC (NanoPlot) summaries
+  - Run-level taxonomy relative-abundance charts
+  - Run-level host removal and read QC (NanoPlot) summaries
   - A run-level assembly overview (N50 and other metrics, collapsed across
     samples rather than shown per sample)
   - A run-level binning overview (genome recovery counts, collapsed across
@@ -255,6 +255,67 @@ def _round_species(rows):
     return out
 
 
+def _build_nanoplot_overview(samples_data):
+    """Build cross-sample nanoplot data for overview bar charts."""
+    samples = [sd["sample"] for sd in samples_data]
+    raw = {"median_read_length": [], "read_length_n50": [], "median_read_quality": []}
+    filtered = {"median_read_length": [], "read_length_n50": [], "median_read_quality": []}
+    for sd in samples_data:
+        for key in raw:
+            raw[key].append(sd["nanoplot_raw"].get(key))
+            filtered[key].append(sd["nanoplot_filtered"].get(key))
+    return {"samples": samples, "raw": raw, "filtered": filtered}
+
+
+def _build_taxonomy_overview(samples_data):
+    """Build cross-sample taxonomy data for 100% stacked bar charts."""
+    def _process(tool_key):
+        species_reads = {}
+        for sd in samples_data:
+            for row in sd.get(tool_key + "_species", []):
+                species_reads[row["name"]] = species_reads.get(row["name"], 0) + row["reads"]
+
+        top_species = sorted(species_reads, key=lambda s: species_reads[s], reverse=True)[:10]
+        samples = [sd["sample"] for sd in samples_data]
+        has_data = any(sd.get(tool_key + "_species") for sd in samples_data)
+
+        data = {}
+        for sd in samples_data:
+            smp = sd["sample"]
+            rows = sd.get(tool_key + "_species", [])
+            rows_by_name = {r["name"]: r for r in rows}
+            total_reads = sum(r["reads"] for r in rows)
+            data[smp] = {}
+            assigned_pct = 0.0
+            assigned_reads = 0
+            for sp in top_species:
+                if sp in rows_by_name:
+                    r = rows_by_name[sp]
+                    data[smp][sp] = {"reads": r["reads"], "percent": r["percent"]}
+                    assigned_pct += r["percent"]
+                    assigned_reads += r["reads"]
+                else:
+                    data[smp][sp] = {"reads": 0, "percent": 0.0}
+
+            other_reads = max(0, total_reads - assigned_reads)
+            other_pct = max(0.0, round(100.0 - assigned_pct, 1))
+            if other_reads > 0 or other_pct > 0:
+                data[smp]["Other"] = {"reads": other_reads, "percent": other_pct}
+
+        has_other = any(
+            "Other" in data[smp] and data[smp]["Other"]["reads"] > 0
+            for smp in samples
+        )
+        species_list = top_species + (["Other"] if has_other else [])
+
+        return {"has_data": has_data, "samples": samples, "species": species_list, "data": data}
+
+    return {
+        "kraken2": _process("kraken2"),
+        "centrifuger": _process("centrifuger"),
+    }
+
+
 def _index_tables_by_sample(paths):
     """Read a list of TSV files and index their rows by the "sample" column
     found in the row itself, rather than relying on list position. This is
@@ -410,10 +471,7 @@ def render(
     versions = _read_json(versions_json)
     run_assembly = run_mode in ("assembly_binning_only", "both")
 
-    # Build per-sample data list (taxonomy, host removal, read QC only —
-    # assembly and binning results are collapsed into run-level overviews
-    # below instead of per-sample sections, to keep the report readable for
-    # runs with many samples).
+    # Build per-sample data used to assemble the run-level overview sections.
     samples_data = []
     for i, sample in enumerate(samples):
         tax = _read_json(taxonomy_jsons[i] if i < len(taxonomy_jsons) else "")
@@ -424,26 +482,11 @@ def render(
             host_stats_data["host_percentage"] = _round1(host_stats_data.get("host_percentage", 0))
             host_stats_data["non_host_percentage"] = _round1(host_stats_data.get("non_host_percentage", 0))
 
-        host_plot_data = None
-        if host_stats_data:
-            host_plot_data = {
-                "labels": ["Host reads", "Non-host reads"],
-                "values": [
-                    host_stats_data.get("host_reads", 0),
-                    host_stats_data.get("non_host_reads", 0),
-                ],
-                "percentages": [
-                    host_stats_data.get("host_percentage", 0),
-                    host_stats_data.get("non_host_percentage", 0),
-                ],
-            }
-
         samples_data.append({
             "sample": sample,
             "kraken2_species": _round_species(tax.get("kraken2", [])),
             "centrifuger_species": _round_species(tax.get("centrifuger", [])),
             "host_stats": host_stats_data,
-            "host_plot_data": host_plot_data,
             "nanoplot_raw": nanoplot_data.get("raw", {}),
             "nanoplot_filtered": nanoplot_data.get("filtered", {}),
         })
@@ -467,6 +510,8 @@ def render(
         # Run-level overviews (collapsed across samples)
         "assembly_overview": _build_assembly_overview(samples, assembly_stats_jsons, run_assembly),
         "binning_overview": _build_binning_overview(samples, genome_summaries, binning_enabled, run_assembly),
+        "nanoplot_overview": _build_nanoplot_overview(samples_data),
+        "taxonomy_overview": _build_taxonomy_overview(samples_data),
         # Interactive workflow diagram (SVG nodes/edges/legend). The static
         # _workflow_.png is still embedded as a base64 fallback for contexts
         # where the interactive SVG cannot be shown (e.g. printing).

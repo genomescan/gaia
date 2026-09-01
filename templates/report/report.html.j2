@@ -40,50 +40,9 @@
 
     .layout {
       display: grid;
-      grid-template-columns: 260px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: 18px;
       align-items: start;
-    }
-
-    .sidebar {
-      position: sticky;
-      top: 14px;
-      background: var(--nv-card);
-      border: 1px solid var(--nv-border);
-      border-radius: 18px;
-      box-shadow: var(--nv-shadow);
-      padding: 14px;
-      max-height: calc(100vh - 28px);
-      overflow: auto;
-    }
-
-    .sidebar summary {
-      cursor: pointer;
-      font-weight: 700;
-      color: var(--nv-navy);
-      margin-bottom: 10px;
-    }
-
-    .sample-jump-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 8px;
-    }
-
-    .sample-jump-list a {
-      display: block;
-      padding: 8px 10px;
-      border-radius: 10px;
-      text-decoration: none;
-      color: var(--nv-navy);
-      background: #f8fbff;
-      border: 1px solid var(--nv-border);
-    }
-
-    .sample-jump-list a:hover {
-      background: var(--nv-cyan-soft);
     }
 
     .hero {
@@ -109,7 +68,6 @@
     .hero-top,
     .hero-stats,
     .overview-grid,
-    .sample-header,
     .metrics-grid,
     .content-grid {
       display: grid;
@@ -124,8 +82,7 @@
     }
 
     .brand-chip,
-    .tag,
-    .sample-tab {
+    .tag {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -218,25 +175,18 @@
       color: var(--nv-muted);
     }
 
-    .tag-list,
-    .sample-tabs {
+    .tag-list {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
     }
 
-    .tag,
-    .sample-tab {
+    .tag {
       background: var(--nv-cyan-soft);
       color: var(--nv-navy);
       border: 1px solid rgba(25,182,212,0.20);
       padding: 8px 12px;
       text-decoration: none;
-    }
-
-    .sample-tab {
-      background: #fff;
-      box-shadow: 0 10px 22px rgba(16, 22, 79, 0.08);
     }
 
     .workflow-card img {
@@ -393,40 +343,6 @@
       display: block;
     }
 
-    .sample-nav {
-      margin: 26px 0 18px;
-    }
-
-    .sample-report {
-      margin-top: 28px;
-    }
-
-    .sample-header {
-      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
-      align-items: start;
-      margin-bottom: 16px;
-    }
-
-    .sample-banner {
-      background: linear-gradient(135deg, var(--nv-navy) 0%, #22308a 100%);
-      color: #fff;
-      border-radius: 24px;
-      padding: 24px 26px;
-      box-shadow: var(--nv-shadow);
-    }
-
-    .sample-banner h2 {
-      margin: 0 0 8px;
-      font-size: 1.8rem;
-    }
-
-    .sample-banner code {
-      color: #fff;
-      background: rgba(255,255,255,0.08);
-      border-radius: 10px;
-      padding: 2px 8px;
-    }
-
     .metrics-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -571,13 +487,8 @@
       .layout {
         grid-template-columns: 1fr;
       }
-      .sidebar {
-        position: static;
-        max-height: none;
-      }
       .hero-top,
-      .overview-grid,
-      .sample-header {
+      .overview-grid {
         grid-template-columns: 1fr;
       }
 
@@ -592,7 +503,6 @@
       }
 
       .hero,
-      .sample-banner,
       .panel,
       .section-card {
         padding: 18px;
@@ -608,16 +518,6 @@
 <body>
 <div class="page">
   <div class="layout">
-    <aside class="sidebar">
-      <details>
-        <summary>Sample navigator ({{ samples_data | length }})</summary>
-        <ul class="sample-jump-list">
-          {% for sd in samples_data %}
-          <li><a href="#sample-{{ loop.index }}">Sample {{ sd.sample }}</a></li>
-          {% endfor %}
-        </ul>
-      </details>
-    </aside>
     <main>
   <header class="hero">
     <div class="hero-top">
@@ -882,342 +782,165 @@
   </section>
   {% endif %}
 
-  <section class="sample-nav">
-    <div class="sample-tabs">
-      {% for sd in samples_data %}
-      <a class="sample-tab" href="#sample-{{ loop.index }}">Sample {{ sd.sample }}</a>
-      {% endfor %}
+  {% set host_rows = samples_data | selectattr("host_stats") | list %}
+  {% if host_rows %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Host removal</div>
+    <h2 class="panel-title h5">Host removal – all samples</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Sample</th><th>Total reads</th><th>Host reads</th><th>Host %</th><th>Non-host reads</th><th>Non-host %</th></tr></thead>
+        <tbody>
+        {% for sd in samples_data %}
+          {% if sd.host_stats %}
+          <tr>
+            <td>{{ sd.sample }}</td>
+            <td>{{ sd.host_stats.total_reads | int }}</td>
+            <td>{{ sd.host_stats.host_reads | int }}</td>
+            <td>{{ sd.host_stats.host_percentage }}%</td>
+            <td>{{ sd.host_stats.non_host_reads | int }}</td>
+            <td>{{ sd.host_stats.non_host_percentage }}%</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
   </section>
+  {% endif %}
 
-  {% for sd in samples_data %}
-  <article class="sample-report" id="sample-{{ loop.index }}">
-    <div class="sample-header">
-      <div class="sample-banner">
-        <h2>Sample <code>{{ sd.sample }}</code></h2>
-        <p class="mb-0">
-          {% set taxonomy_tools = [] %}
-          {% if sd.kraken2_species %}{% set _ = taxonomy_tools.append("Kraken2") %}{% endif %}
-          {% if sd.centrifuger_species %}{% set _ = taxonomy_tools.append("Centrifuger") %}{% endif %}
-          {% if taxonomy_tools %}
-            Taxonomy available from {{ taxonomy_tools | join(" and ") }}.
-          {% else %}
-            No taxonomy summaries were generated for this sample.
-          {% endif %}
-        </p>
-      </div>
-      <div class="metrics-grid">
-        <div class="metric">
-          <div class="stat-label">Host removal</div>
-          <div class="stat-value">
-            {% if sd.host_stats %}
-              {{ sd.host_stats.non_host_percentage }}% retained
-            {% else %}
-              Not reported
-            {% endif %}
-          </div>
-        </div>
-        <div class="metric">
-          <div class="stat-label">Taxonomy tables</div>
-          <div class="stat-value">
-            {{ (1 if sd.kraken2_species else 0) + (1 if sd.centrifuger_species else 0) }}
-          </div>
-        </div>
-        <div class="metric">
-          <div class="stat-label">Kraken2 top species</div>
-          <div class="stat-value">{{ sd.kraken2_species | length }}</div>
-        </div>
-        <div class="metric">
-          <div class="stat-label">Centrifuger top species</div>
-          <div class="stat-value">{{ sd.centrifuger_species | length }}</div>
-        </div>
-      </div>
-    </div>
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Read quality</div>
+    <h2 class="panel-title h5">
+      NanoPlot metrics – all samples
+      <span class="help-icon">?<span class="help-tooltip">Grouped bar charts compare raw and filtered read length and quality metrics across all samples. Higher values for quality and length indicate better sequencing output.</span></span>
+    </h2>
+    <div id="nanoplot-overview-median-length" class="plot" style="min-height:340px;"></div>
+    <div id="nanoplot-overview-n50" class="plot" style="min-height:340px; margin-top:14px;"></div>
+    <div id="nanoplot-overview-quality" class="plot" style="min-height:340px; margin-top:14px;"></div>
+  </section>
 
-    <div class="content-grid">
-      {% if sd.host_stats and sd.host_plot_data %}
-      <section class="section-card split">
-        <div class="section-kicker">Host removal</div>
-        <h3 class="section-title h5">
-          Read partitioning
-          <span class="help-icon">?<span class="help-tooltip">Proportion of sequencing reads mapped to the host genome versus non-host (microbial) reads. Non-host reads proceed to downstream taxonomic and genomic analyses.</span></span>
-        </h3>
-        <div id="host-removal-plot-{{ sd.sample }}" class="plot"></div>
-      </section>
+  {% if taxonomy_overview.kraken2.has_data %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Taxonomic profiling</div>
+    <h2 class="panel-title h5">
+      Kraken2 – relative abundance by sample
+      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 10 are grouped as "Other".</span></span>
+    </h2>
+    <div id="taxonomy-kraken2-overview" class="plot" style="min-height: {{ [taxonomy_overview.kraken2.samples | length * 50 + 120, 300] | max }}px;"></div>
+  </section>
+  {% endif %}
 
-      <section class="section-card split">
-        <div class="section-kicker">Host removal</div>
-        <h3 class="section-title h5">Counts and percentages</h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Read category</th><th>Count</th><th>Percentage</th></tr></thead>
-            <tbody>
-              <tr><td>Host</td><td>{{ sd.host_stats.host_reads | int }}</td><td>{{ sd.host_stats.host_percentage }}%</td></tr>
-              <tr><td>Non-host</td><td>{{ sd.host_stats.non_host_reads | int }}</td><td>{{ sd.host_stats.non_host_percentage }}%</td></tr>
-              <tr class="fw-semibold"><td>Total</td><td>{{ sd.host_stats.total_reads | int }}</td><td>100%</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      {% endif %}
-
-      {% if sd.nanoplot_raw or sd.nanoplot_filtered %}
-      <section class="section-card">
-        <div class="section-kicker">Read quality</div>
-        <h3 class="section-title h5">
-          NanoPlot metrics – raw vs filtered
-          <span class="help-icon">?<span class="help-tooltip">Summary of read-level quality and length statistics produced by NanoPlot, comparing raw (pre-filtering) and filtered reads. Higher values for quality and length indicate better sequencing output.</span></span>
-        </h3>
-        <div class="table-responsive mb-3">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Metric</th><th>Raw</th><th>Filtered</th></tr></thead>
-            <tbody>
-            {% set metric_labels = [
-              ("number_of_reads",    "Number of reads"),
-              ("total_bases",        "Total bases"),
-              ("mean_read_length",   "Mean read length (bp)"),
-              ("median_read_length", "Median read length (bp)"),
-              ("read_length_n50",    "Read length N50 (bp)"),
-              ("mean_read_quality",  "Mean read quality"),
-              ("median_read_quality","Median read quality"),
-              ("active_channels",    "Active channels"),
-            ] %}
-            {% for key, label in metric_labels %}
-              {% if sd.nanoplot_raw.get(key) is not none or sd.nanoplot_filtered.get(key) is not none %}
-              <tr>
-                <td>{{ label }}</td>
-                <td>{{ sd.nanoplot_raw.get(key, "—") }}</td>
-                <td>{{ sd.nanoplot_filtered.get(key, "—") }}</td>
-              </tr>
-              {% endif %}
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <div id="nanoplot-chart-{{ sd.sample }}" class="plot" style="min-height:350px;"></div>
-        <div id="nanoplot-quality-chart-{{ sd.sample }}" class="plot" style="min-height:280px; margin-top:14px;"></div>
-      </section>
-      {% endif %}
-
-      {% if sd.kraken2_species %}
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">
-          Kraken2 top species
-          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Kraken2. The table shows the most abundant species identified in the sample, ranked by read count.</span></span>
-        </h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Species</th><th>Reads</th><th>Percentage (%)</th></tr></thead>
-            <tbody>
-            {% for row in sd.kraken2_species %}
-              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">Kraken2 abundance chart (Top 10)</h3>
-        <div id="kraken2-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
-      </section>
-      {% endif %}
-
-      {% if sd.centrifuger_species %}
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">
-          Centrifuger top species
-          <span class="help-icon">?<span class="help-tooltip">Taxonomic classification results from Centrifuger. The table shows the most abundant species identified in the sample, ranked by read count. The percentage column is Centrifuger's abundance estimate: the proportion of this genome normalized by its genomic length, not a raw share of classified reads.</span></span>
-        </h3>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead><tr><th>Species</th><th>Reads</th><th>Genome-normalized abundance (%)</th></tr></thead>
-            <tbody>
-            {% for row in sd.centrifuger_species %}
-              <tr><td>{{ row.name }}</td><td>{{ row.reads }}</td><td>{{ row.percent }}</td></tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="section-card split">
-        <div class="section-kicker">Taxonomy</div>
-        <h3 class="section-title h5">Centrifuger abundance chart (Top 10)</h3>
-        <div id="centrifuger-plot-{{ sd.sample }}" class="plot" style="min-height:420px;"></div>
-      </section>
-      {% endif %}
-    </div>
-  </article>
-  {% endfor %}
+  {% if taxonomy_overview.centrifuger.has_data %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Taxonomic profiling</div>
+    <h2 class="panel-title h5">
+      Centrifuger – relative abundance by sample
+      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 10 are grouped as "Other".</span></span>
+    </h2>
+    <div id="taxonomy-centrifuger-overview" class="plot" style="min-height: {{ [taxonomy_overview.centrifuger.samples | length * 50 + 120, 300] | max }}px;"></div>
+  </section>
+  {% endif %}
     </main>
   </div>
 </div>
 
 <script>
-  var plotTheme = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: '#ffffff',
-    font: {family: '"Segoe UI", Arial, sans-serif', color: '#1d2840'},
-    margin: {l: 70, r: 20, t: 10, b: 45}
-  };
-
-  function renderHorizontalBar(containerId, rows, barColor, chartTitle) {
-    if (!rows || rows.length === 0) return;
-    var el = document.getElementById(containerId);
-    if (!el) return;
-    var topRows = rows
-      .slice()
-      .sort(function(a, b) { return Number(b.percent || 0) - Number(a.percent || 0); })
-      .slice(0, 10);
-    Plotly.newPlot(containerId, [{
-      type: 'bar',
-      orientation: 'h',
-      x: topRows.map(function(r) { return Number(r.reads || 0); }),
-      y: topRows.map(function(r) {
-        var pct = Number(r.percent || 0);
-        return r.name + ' (' + pct.toFixed(1) + '%)';
-      }),
-      customdata: topRows.map(function(r) { return Number(r.percent || 0); }),
-      marker: {color: barColor, line: {color: barColor, width: 1}},
-      hovertemplate: '%{y}<br>Reads: %{x:,}<br>Percentage: %{customdata:.1f}%<extra></extra>'
-    }], Object.assign({}, plotTheme, {
-      title: {text: chartTitle + ' (Top 10)', font: {size: 14, color: '#1d2840'}},
-      margin: {l: 230, r: 20, t: 10, b: 45},
-      xaxis: {
-        title: 'Reads',
-        gridcolor: '#d9e3f0',
-        zerolinecolor: '#d9e3f0'
-      },
-      yaxis: {automargin: true, autorange: 'reversed'}
-    }), {responsive: true, displayModeBar: false});
-  }
-
-  {% for sd in samples_data %}
   (function() {
-    var sampleId = {{ sd.sample | tojson }};
-    var kraken2Species = {{ sd.kraken2_species | tojson }};
-    var centrifugerSpecies = {{ sd.centrifuger_species | tojson }};
-    var hostPlotData = {% if sd.host_plot_data %}{{ sd.host_plot_data | tojson }}{% else %}null{% endif %};
+    var data = {{ nanoplot_overview | tojson }};
+    var samples = data.samples;
+    var navy = '#10164f', cyan = '#19b6d4';
+    var layout_base = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: { family: '"Segoe UI", Arial, sans-serif', color: '#1d2840' },
+      xaxis: { tickangle: -30 },
+      legend: { orientation: 'h', y: -0.25 },
+      barmode: 'group',
+      margin: { t: 40, b: 80, l: 60, r: 20 }
+    };
 
-    if (hostPlotData) {
-      Plotly.newPlot('host-removal-plot-' + sampleId, [{
-        type: 'pie',
-        labels: hostPlotData.labels,
-        values: hostPlotData.values,
-        hole: 0.62,
-        marker: {colors: ['#10164f', '#19b6d4']},
-        textinfo: 'label+percent',
-        hovertemplate: '%{label}: %{value:,} (%{percent})<extra></extra>'
-      }], Object.assign({}, plotTheme, {
-        margin: {l: 20, r: 20, t: 10, b: 10},
-        showlegend: true,
-        legend: {orientation: 'h', y: -0.1}
-      }), {responsive: true, displayModeBar: false});
+    function makeBar(divId, title, rawKey, filtKey) {
+      if (!document.getElementById(divId)) return;
+      var traceRaw = {
+        x: samples,
+        y: data.raw[rawKey],
+        name: 'Raw',
+        type: 'bar',
+        marker: { color: navy }
+      };
+      var traceFilt = {
+        x: samples,
+        y: data.filtered[filtKey],
+        name: 'Filtered',
+        type: 'bar',
+        marker: { color: cyan }
+      };
+      Plotly.newPlot(divId, [traceRaw, traceFilt], Object.assign({}, layout_base, { title: { text: title } }), { responsive: true, displayModeBar: false });
     }
 
-    renderHorizontalBar('kraken2-plot-' + sampleId, kraken2Species, '#19b6d4', 'Kraken2 abundance');
-    renderHorizontalBar('centrifuger-plot-' + sampleId, centrifugerSpecies, '#10164f', 'Centrifuger abundance');
-
-    (function() {
-      var rawMetrics = {{ sd.nanoplot_raw | tojson }};
-      var filteredMetrics = {{ sd.nanoplot_filtered | tojson }};
-      var chartEl = document.getElementById('nanoplot-chart-' + sampleId);
-      if (!chartEl || (!Object.keys(rawMetrics).length && !Object.keys(filteredMetrics).length)) return;
-
-      // Length/yield metrics (primary chart – values in bp / counts)
-      var lengthKeys = [
-        ['mean_read_length',   'Mean read length (bp)'],
-        ['median_read_length', 'Median read length (bp)'],
-        ['read_length_n50',    'N50 (bp)']
-      ];
-      var lengthLabels = [], lengthRaw = [], lengthFilt = [];
-      lengthKeys.forEach(function(kl) {
-        var key = kl[0], label = kl[1];
-        if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
-          lengthLabels.push(label);
-          lengthRaw.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
-          lengthFilt.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
-        }
-      });
-      if (lengthLabels.length) {
-        Plotly.newPlot('nanoplot-chart-' + sampleId, [
-          {
-            name: 'Raw',
-            type: 'bar',
-            x: lengthLabels,
-            y: lengthRaw,
-            marker: {color: '#19b6d4'},
-            hovertemplate: '%{x}: %{y:,}<extra>Raw</extra>'
-          },
-          {
-            name: 'Filtered',
-            type: 'bar',
-            x: lengthLabels,
-            y: lengthFilt,
-            marker: {color: '#10164f'},
-            hovertemplate: '%{x}: %{y:,}<extra>Filtered</extra>'
-          }
-        ], Object.assign({}, plotTheme, {
-          barmode: 'group',
-          title: {text: 'NanoPlot: Read length metrics – raw vs filtered', font: {size: 14, color: '#1d2840'}},
-          margin: {l: 70, r: 20, t: 40, b: 80},
-          xaxis: {tickangle: -20, automargin: true},
-          yaxis: {title: 'Length (bp)', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0'},
-          legend: {orientation: 'h', y: -0.25},
-          showlegend: true
-        }), {responsive: true, displayModeBar: false});
-      }
-
-      // Quality metrics (separate chart – Phred Q-score scale, ~0–40)
-      var qualKeys = [
-        ['mean_read_quality',   'Mean quality (Q)'],
-        ['median_read_quality', 'Median quality (Q)']
-      ];
-      var qualLabels = [], qualRaw = [], qualFilt = [];
-      qualKeys.forEach(function(kl) {
-        var key = kl[0], label = kl[1];
-        if (rawMetrics[key] !== undefined || filteredMetrics[key] !== undefined) {
-          qualLabels.push(label);
-          qualRaw.push(rawMetrics[key] !== undefined ? rawMetrics[key] : null);
-          qualFilt.push(filteredMetrics[key] !== undefined ? filteredMetrics[key] : null);
-        }
-      });
-      var qualEl = document.getElementById('nanoplot-quality-chart-' + sampleId);
-      if (qualEl && qualLabels.length) {
-        Plotly.newPlot('nanoplot-quality-chart-' + sampleId, [
-          {
-            name: 'Raw',
-            type: 'bar',
-            x: qualLabels,
-            y: qualRaw,
-            marker: {color: '#19b6d4'},
-            hovertemplate: '%{x}: %{y:.2f}<extra>Raw</extra>'
-          },
-          {
-            name: 'Filtered',
-            type: 'bar',
-            x: qualLabels,
-            y: qualFilt,
-            marker: {color: '#10164f'},
-            hovertemplate: '%{x}: %{y:.2f}<extra>Filtered</extra>'
-          }
-        ], Object.assign({}, plotTheme, {
-          barmode: 'group',
-          title: {text: 'NanoPlot: Read quality (Phred Q-score) – raw vs filtered', font: {size: 14, color: '#1d2840'}},
-          margin: {l: 70, r: 20, t: 40, b: 80},
-          xaxis: {automargin: true},
-          yaxis: {title: 'Phred quality score (Q)', gridcolor: '#d9e3f0', zerolinecolor: '#d9e3f0', rangemode: 'tozero'},
-          legend: {orientation: 'h', y: -0.25},
-          showlegend: true
-        }), {responsive: true, displayModeBar: false});
-      }
-    })();
+    makeBar('nanoplot-overview-median-length', 'Median read length (bp)', 'median_read_length', 'median_read_length');
+    makeBar('nanoplot-overview-n50',           'Read length N50 (bp)',    'read_length_n50',    'read_length_n50');
+    makeBar('nanoplot-overview-quality',       'Median read quality',     'median_read_quality','median_read_quality');
   })();
-  {% endfor %}
+
+  (function() {
+    var taxData = {{ taxonomy_overview | tojson }};
+    var palette = [
+      '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+      '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
+      '#19b6d4','#10164f'
+    ];
+    var otherColor = '#cccccc';
+
+    function renderTaxonomy(divId, tool) {
+      var d = taxData[tool];
+      if (!d || !d.has_data) return;
+      var el = document.getElementById(divId);
+      if (!el) return;
+
+      var species = d.species;
+      var samples = d.samples;
+
+      var traces = species.map(function(sp, si) {
+        var pcts = [], readCounts = [], texts = [];
+        samples.forEach(function(smp) {
+          var entry = d.data[smp] && d.data[smp][sp];
+          var pct = entry ? entry.percent : 0;
+          var reads = entry ? entry.reads : 0;
+          pcts.push(pct);
+          readCounts.push(reads);
+          texts.push(sp + '<br>Reads: ' + reads.toLocaleString() + '<br>' + pct.toFixed(1) + '%');
+        });
+        return {
+          name: sp,
+          x: pcts,
+          y: samples,
+          type: 'bar',
+          orientation: 'h',
+          marker: { color: sp === 'Other' ? otherColor : palette[si % palette.length] },
+          text: texts,
+          hovertemplate: '%{text}<extra></extra>',
+          textposition: 'none'
+        };
+      });
+
+      var layout = {
+        barmode: 'stack',
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: '"Segoe UI", Arial, sans-serif', color: '#1d2840' },
+        xaxis: { title: 'Relative abundance (%)', range: [0, 100], ticksuffix: '%' },
+        yaxis: { automargin: true },
+        legend: { orientation: 'h', y: -0.25, traceorder: 'normal' },
+        margin: { t: 20, b: 120, l: 160, r: 20 }
+      };
+      Plotly.newPlot(divId, traces, layout, { responsive: true, displayModeBar: false });
+    }
+
+    renderTaxonomy('taxonomy-kraken2-overview', 'kraken2');
+    renderTaxonomy('taxonomy-centrifuger-overview', 'centrifuger');
+  })();
 </script>
 </body>
 </html>
