@@ -115,6 +115,18 @@ rule render_run_report:
         genome_summaries=(
             lambda wc: [report_path(s, f"{s}.genome_summary.tsv") for s in binning_samples()]
         ) if RUN_ASSEMBLY else [],
+        gtdbtk_bac120s=(
+            lambda wc: [
+                refinement_path("Prokaryotic", "GTDBTk", s, "gtdbtk.bac120.summary.tsv")
+                for s in binning_samples()
+            ]
+        ) if GTDBTK_ENABLED else [],
+        gtdbtk_ar53s=(
+            lambda wc: [
+                refinement_path("Prokaryotic", "GTDBTk", s, "gtdbtk.ar53.summary.tsv")
+                for s in binning_samples()
+            ]
+        ) if GTDBTK_ENABLED else [],
         genome_inventories=(
             lambda wc: [report_path(s, f"{s}.genome_inventory.tsv") for s in binning_samples()]
         ) if RUN_ASSEMBLY else [],
@@ -157,6 +169,8 @@ rule render_run_report:
           --nanoplot-jsons "{input.nanoplot_jsons}" \
           --assembly-stats-jsons "{input.assembly_stats_jsons}" \
           --genome-summaries "{input.genome_summaries}" \
+          --gtdbtk-bac120s "{input.gtdbtk_bac120s}" \
+          --gtdbtk-ar53s "{input.gtdbtk_ar53s}" \
           --genome-inventories "{input.genome_inventories}" \
           --pipeline-summaries "{input.pipeline_summaries}" \
           --host-stats-jsons "{input.host_stats}" \
