@@ -590,6 +590,71 @@
       border-radius: 999px;
     }
 
+    /* NanoPlot metrics: very thin horizontal bars (raw vs filtered per sample) */
+    .np-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .np-bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .np-bar-row {
+      display: grid;
+      grid-template-columns: minmax(90px, 1fr) 3fr minmax(120px, auto);
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+    }
+
+    .np-bar-sample {
+      word-break: break-word;
+    }
+
+    .np-bar-tracks {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .np-bar-track {
+      position: relative;
+      background: #eef2f8;
+      border-radius: 999px;
+      height: 4px;
+    }
+
+    .np-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .np-bar-raw {
+      background: var(--nv-navy-soft);
+    }
+
+    .np-bar-filtered {
+      background: var(--nv-cyan);
+    }
+
+    .np-bar-marker {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      width: 0;
+      border-left: 1px dashed var(--nv-muted);
+    }
+
+    .np-bar-values {
+      color: var(--nv-muted);
+      white-space: nowrap;
+      text-align: right;
+    }
+
     @media (max-width: 1080px) {
       .layout {
         grid-template-columns: 1fr;
@@ -636,9 +701,8 @@
         <div class="brand-chip">Gaia &middot; analysis pipeline for long-read shotgun metagenomics</div>
         <h1>Metagenomics run report</h1>
         <p class="hero-summary">
-          A consolidated overview of preprocessing, host removal, taxonomic profiling, and genome
-          reconstruction (assembly and binning, summarized across all samples) for
-          <code>{{ samples | length }}</code> sample(s).
+          A summarised overview of preprocessing, host removal, taxonomic profiling, and genome
+          reconstruction for <code>{{ samples | length }}</code> sample(s).
         </p>
       </div>
       <div class="hero-stats">
@@ -820,7 +884,7 @@
       </div>
 
       <div>
-        <h3 class="panel-title h6" style="margin-bottom: 6px;">Run-level ranges</h3>
+        <h3 class="panel-title h6" style="margin-bottom: 6px;">Across all samples</h3>
         <div class="metrics-grid dense mb-3">
           <div class="metric">
             <div class="stat-label">Read N50 (bp)</div>
@@ -859,58 +923,93 @@
     {% endif %}
   </section>
 
-  {% if checkm2_overview.available %}
   <section class="section-card" style="margin-top: 22px;">
-    <div class="section-kicker">Genome reconstruction</div>
+    <div class="section-kicker">Read quality</div>
     <h2 class="panel-title h5">
-      CheckM2 summary
-      <span class="help-icon">?<span class="help-tooltip">Run-level aggregate of CheckM2's quality_report.tsv across all binned samples (min &ndash; max, median where the range is non-trivial). CheckM2 estimates genome completeness and contamination from predicted gene content.</span></span>
+      NanoPlot metrics – across all samples
+      <span class="help-icon">?<span class="help-tooltip">Per-sample read quality and length metrics from NanoPlot, comparing raw and filtered reads. Each metric is drawn as a thin horizontal bar per sample; read quality uses a fixed Nanopore Q0&ndash;Q30 scale with a Q20 (high-accuracy) reference marker. The full numeric table is available below.</span></span>
     </h2>
-    <p class="muted" style="font-size: 0.85rem; margin-bottom: 12px;">
-      <a href="https://github.com/chklovski/CheckM2" target="_blank" rel="noopener">CheckM2</a> quality assessment for {{ checkm2_overview.genome_count }} user genome(s) across all samples.
-    </p>
-    <div class="metrics-grid dense">
-      <div class="metric">
-        <div class="stat-label">User genomes</div>
-        <div class="stat-value">{{ checkm2_overview.genome_count }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">Predicted completeness</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.completeness.range }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">Predicted contamination</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.contamination.range }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">Coding density</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.coding_density.range }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">Average gene length (bp)</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.average_gene_length.range }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">Genome size (bp)</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.genome_size.range }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">GC content</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.gc_content.range }}</div>
-      </div>
-      <div class="metric">
-        <div class="stat-label">Total coding sequences</div>
-        <div class="stat-value">{{ checkm2_overview.metrics.total_coding_sequences.range }}</div>
-      </div>
+    {% if nanoplot_overview.samples %}
+    <div class="ring-legend">
+      <span class="tag"><span class="legend-swatch" style="background: var(--nv-navy-soft);"></span>Raw</span>
+      <span class="tag"><span class="legend-swatch" style="background: var(--nv-cyan);"></span>Filtered</span>
     </div>
+    <div class="np-groups">
+      {% for group in nanoplot_overview.bars %}
+      <div class="np-group">
+        <h3 class="panel-title h6" style="margin-bottom: 8px;">
+          {{ group.label }}
+          <span class="muted" style="font-weight: 400; font-size: 0.78rem;">(scale {{ group.scale_min_label }} – {{ group.scale_max_label }})</span>
+        </h3>
+        {% if group.has_data %}
+        <div class="np-bar-list">
+          {% for row in group.rows %}
+          <div class="np-bar-row">
+            <span class="np-bar-sample">{{ row.sample }}</span>
+            <div class="np-bar-tracks">
+              {% for kind, entry in [("raw", row.raw), ("filtered", row.filtered)] %}
+              <div class="np-bar-track" title="{{ row.sample }} – {{ kind }}: {{ entry.label }}">
+                <div class="np-bar-fill np-bar-{{ kind }}" style="width: {{ entry.width }}%;"></div>
+                {% if group.marker %}
+                <div class="np-bar-marker" style="left: {{ group.marker.percent }}%;" title="{{ group.marker.label }}"></div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            <span class="np-bar-values">{{ row.raw.label }} <span class="muted">&rarr;</span> {{ row.filtered.label }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% if group.marker %}
+        <p class="muted" style="font-size: 0.75rem; margin: 6px 0 0;">Dashed marker: {{ group.marker.label }} reference for Nanopore reads.</p>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">No {{ group.label | lower }} values were available.</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No NanoPlot metrics were available for this run.</div>
+    {% endif %}
+    <details style="margin-top: 16px;">
+      <summary style="cursor: pointer; font-weight: 600; color: var(--nv-navy); margin-bottom: 12px;">
+        Numeric table – Raw vs Filtered – {{ nanoplot_overview.samples | length }} sample(s)
+      </summary>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              <th>Median length – Raw</th><th>Median length – Filtered</th>
+              <th>N50 – Raw</th><th>N50 – Filtered</th>
+              <th>Median Qual – Raw</th><th>Median Qual – Filtered</th>
+              <th># Reads – Raw (K)</th><th># Reads – Filtered (K)</th>
+              <th>Total Bases – Raw (Mbp)</th><th>Total Bases – Filtered (Mbp)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for sample in nanoplot_overview.samples %}
+            {% set i = loop.index0 %}
+            <tr>
+              <td>{{ sample }}</td>
+              <td>{{ nanoplot_overview.raw.median_read_length[i] if nanoplot_overview.raw.median_read_length[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.median_read_length[i] if nanoplot_overview.filtered.median_read_length[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.read_length_n50[i] if nanoplot_overview.raw.read_length_n50[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.read_length_n50[i] if nanoplot_overview.filtered.read_length_n50[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.median_read_quality[i] if nanoplot_overview.raw.median_read_quality[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.median_read_quality[i] if nanoplot_overview.filtered.median_read_quality[i] is not none else "—" }}</td>
+              <td>{% if nanoplot_overview.raw.number_of_reads[i] is not none %}{{ "%.1f" | format(nanoplot_overview.raw.number_of_reads[i] | float / 1000) }}{% else %}—{% endif %}</td>
+              <td>{% if nanoplot_overview.filtered.number_of_reads[i] is not none %}{{ "%.1f" | format(nanoplot_overview.filtered.number_of_reads[i] | float / 1000) }}{% else %}—{% endif %}</td>
+              <td>{% if nanoplot_overview.raw.total_bases[i] is not none %}{{ "%.2f" | format(nanoplot_overview.raw.total_bases[i] | float / 1000000) }}{% else %}—{% endif %}</td>
+              <td>{% if nanoplot_overview.filtered.total_bases[i] is not none %}{{ "%.2f" | format(nanoplot_overview.filtered.total_bases[i] | float / 1000000) }}{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
   </section>
-  {% else %}
-  <section class="section-card" style="margin-top: 22px;">
-    <div class="section-kicker">Genome reconstruction</div>
-    <h2 class="panel-title h5">CheckM2 summary</h2>
-    <div class="empty-state">CheckM2 statistics unavailable for this run.</div>
-  </section>
-  {% endif %}
 
   {% if assembly_overview.enabled %}
   <section class="section-card" style="margin-top: 22px;">
@@ -1030,6 +1129,93 @@
   </section>
   {% endif %}
 
+  {% if checkm2_overview.available %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">
+      CheckM2 summary
+      <span class="help-icon">?<span class="help-tooltip">CheckM2 quality_report.tsv results, shown per sample and per genome, with the across-all-samples aggregate (min &ndash; max, median where the range is non-trivial) above the table. CheckM2 estimates genome completeness and contamination from predicted gene content.</span></span>
+    </h2>
+    <p class="muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+      <a href="https://github.com/chklovski/CheckM2" target="_blank" rel="noopener">CheckM2</a> quality assessment for {{ checkm2_overview.genome_count }} user genome(s) across {{ checkm2_overview.sample_count }} sample(s).
+    </p>
+    <div class="metrics-grid dense">
+      <div class="metric">
+        <div class="stat-label">User genomes</div>
+        <div class="stat-value">{{ checkm2_overview.genome_count }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Predicted completeness</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.completeness.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Predicted contamination</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.contamination.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Coding density</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.coding_density.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Average gene length (bp)</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.average_gene_length.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Genome size (bp)</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.genome_size.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">GC content</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.gc_content.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Total coding sequences</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.total_coding_sequences.range }}</div>
+      </div>
+    </div>
+    <h3 class="panel-title h6" style="margin: 18px 0 8px;">Per sample</h3>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Sample</th>
+            <th>User genome</th>
+            <th>Completeness</th>
+            <th>Contamination</th>
+            <th>Coding density</th>
+            <th>Average gene length (bp)</th>
+            <th>Genome size (bp)</th>
+            <th>GC content</th>
+            <th>Total coding sequences</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in checkm2_overview.rows %}
+          <tr>
+            <td>{{ row.sample }}</td>
+            <td><code>{{ row.user_genome }}</code></td>
+            <td>{{ row.completeness }}</td>
+            <td>{{ row.contamination }}</td>
+            <td>{{ row.coding_density }}</td>
+            <td>{{ row.average_gene_length }}</td>
+            <td>{{ row.genome_size }}</td>
+            <td>{{ row.gc_content }}</td>
+            <td>{{ row.total_coding_sequences }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size: 0.82rem; margin-top: 8px;">Showing {{ checkm2_overview.rows | length }} genome(s) across {{ checkm2_overview.sample_count }} sample(s).</p>
+  </section>
+  {% else %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">CheckM2 summary</h2>
+    <div class="empty-state">CheckM2 statistics unavailable for this run.</div>
+  </section>
+  {% endif %}
+
   {% if gtdbtk_rows %}
   <section class="section-card" style="margin-top: 22px;">
     <div class="section-kicker">Genome reconstruction</div>
@@ -1100,51 +1286,6 @@
     </div>
   </section>
   {% endif %}
-
-  <section class="section-card" style="margin-top: 22px;">
-    <div class="section-kicker">Read quality</div>
-    <h2 class="panel-title h5">
-      NanoPlot metrics – all samples
-      <span class="help-icon">?<span class="help-tooltip">Per-sample read quality and length metrics from NanoPlot, comparing raw and filtered reads. Median length, N50, and quality are shown alongside read count and total yield. Click the summary to collapse/expand.</span></span>
-    </h2>
-    <details open>
-      <summary style="cursor: pointer; font-weight: 600; color: var(--nv-navy); margin-bottom: 12px;">
-        Raw vs Filtered – {{ nanoplot_overview.samples | length }} sample(s)
-      </summary>
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Sample</th>
-              <th>Median length – Raw</th><th>Median length – Filtered</th>
-              <th>N50 – Raw</th><th>N50 – Filtered</th>
-              <th>Median Qual – Raw</th><th>Median Qual – Filtered</th>
-              <th># Reads – Raw (K)</th><th># Reads – Filtered (K)</th>
-              <th>Total Bases – Raw (Mbp)</th><th>Total Bases – Filtered (Mbp)</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for sample in nanoplot_overview.samples %}
-            {% set i = loop.index0 %}
-            <tr>
-              <td>{{ sample }}</td>
-              <td>{{ nanoplot_overview.raw.median_read_length[i] if nanoplot_overview.raw.median_read_length[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.median_read_length[i] if nanoplot_overview.filtered.median_read_length[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.raw.read_length_n50[i] if nanoplot_overview.raw.read_length_n50[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.read_length_n50[i] if nanoplot_overview.filtered.read_length_n50[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.raw.median_read_quality[i] if nanoplot_overview.raw.median_read_quality[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.median_read_quality[i] if nanoplot_overview.filtered.median_read_quality[i] is not none else "—" }}</td>
-              <td>{% if nanoplot_overview.raw.number_of_reads[i] is not none %}{{ "%.1f" | format(nanoplot_overview.raw.number_of_reads[i] | float / 1000) }}{% else %}—{% endif %}</td>
-              <td>{% if nanoplot_overview.filtered.number_of_reads[i] is not none %}{{ "%.1f" | format(nanoplot_overview.filtered.number_of_reads[i] | float / 1000) }}{% else %}—{% endif %}</td>
-              <td>{% if nanoplot_overview.raw.total_bases[i] is not none %}{{ "%.2f" | format(nanoplot_overview.raw.total_bases[i] | float / 1000000) }}{% else %}—{% endif %}</td>
-              <td>{% if nanoplot_overview.filtered.total_bases[i] is not none %}{{ "%.2f" | format(nanoplot_overview.filtered.total_bases[i] | float / 1000000) }}{% else %}—{% endif %}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  </section>
 
   {% if taxonomy_overview.kraken2.has_data %}
   <section class="section-card" style="margin-top: 22px;">
