@@ -245,6 +245,67 @@ def _round1(value):
         return value
 
 
+def _to_float(value):
+    """Best-effort conversion to float; returns None for missing/invalid values
+    (empty strings, "NA"/"N/A", None, NaN) instead of raising."""
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f != f:  # NaN check without importing math for a single use
+        return None
+    return f
+
+
+def _agg_stats(values):
+    """Return {count, min, max, median} for a list of numeric values, filtering
+    out anything non-numeric/NaN first. Returns None if nothing usable remains."""
+    vals = [v for v in (_to_float(v) for v in values) if v is not None]
+    if not vals:
+        return None
+    return {
+        "count": len(vals),
+        "min": min(vals),
+        "max": max(vals),
+        "median": statistics.median(vals),
+    }
+
+
+def _fmt_number(value, kind="float1"):
+    """Human-friendly formatting for aggregate values. `kind` controls units:
+    "int" (thousands-separated integer), "pct" (value already 0-100, shown with
+    a % suffix), "pct_frac" (value is a 0-1 fraction, multiplied by 100), or
+    "float1" (plain 1-decimal number, the default)."""
+    if value is None:
+        return "—"
+    try:
+        if kind == "int":
+            return f"{int(round(value)):,}"
+        if kind == "pct":
+            return f"{value:.1f}%"
+        if kind == "pct_frac":
+            return f"{value * 100:.1f}%"
+        return f"{value:.1f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def _fmt_range(stat, kind="float1"):
+    """Render an aggregate stat dict (see _agg_stats) as a compact human
+    readable range, e.g. "64.0 – 95.9% (median 71.3%, n=8)". Returns an em-dash
+    when no data is available."""
+    if not stat:
+        return "—"
+    lo = _fmt_number(stat["min"], kind)
+    hi = _fmt_number(stat["max"], kind)
+    med = _fmt_number(stat["median"], kind)
+    if lo == hi:
+        return f"{lo} (n={stat['count']})"
+    return f"{lo} – {hi} (median {med}, n={stat['count']})"
+
+
 def _round_species(rows):
     out = []
     for row in rows:
@@ -481,6 +542,117 @@ def _build_gtdbtk(bac120_paths, ar53_paths):
     return rows
 
 
+# CheckM2 quality_report.tsv columns we aggregate for the run-level CheckM2
+# summary, and how each should be formatted (see _fmt_number).
+_CHECKM2_FIELDS = [
+    ("completeness", "Completeness", "pct"),
+    ("contamination", "Contamination", "pct"),
+    ("coding_density", "Coding_Density", "pct_frac"),
+    ("average_gene_length", "Average_Gene_Length", "float1"),
+    ("genome_size", "Genome_Size", "int"),
+    ("gc_content", "GC_Content", "pct_frac"),
+    ("total_coding_sequences", "Total_Coding_Sequences", "int"),
+]
+
+
+def _build_checkm2_overview(checkm2_paths):
+    """Aggregate CheckM2 quality_report.tsv files (one per binned sample) into
+    a single run-level summary. Returns {"available": False} gracefully when
+    no CheckM2 output could be read, so the template can hide the section."""
+    rows = []
+    for path in checkm2_paths:
+        rows.extend(_read_table(path))
+
+    if not rows:
+        return {"available": False, "genome_count": 0, "metrics": {}}
+
+    metrics = {}
+    for key, column, kind in _CHECKM2_FIELDS:
+        stat = _agg_stats(row.get(column) for row in rows)
+        metrics[key] = {"stat": stat, "range": _fmt_range(stat, kind)}
+
+    return {
+        "available": True,
+        "genome_count": len(rows),
+        "metrics": metrics,
+    }
+
+
+def _build_top_taxa(samples_data, top_n=5):
+    """Aggregate top taxa across all samples (reads summed per species) using
+    whichever taxonomy tool has data (kraken2 preferred, else centrifuger)."""
+    for tool_key in ("kraken2", "centrifuger"):
+        species_reads = {}
+        total_reads = 0
+        for sd in samples_data:
+            for row in sd.get(tool_key + "_species", []):
+                reads = row.get("reads") or 0
+                species_reads[row["name"]] = species_reads.get(row["name"], 0) + reads
+                total_reads += reads
+        if species_reads and total_reads:
+            top = sorted(species_reads.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
+            return {
+                "available": True,
+                "tool": tool_key,
+                "taxa": [
+                    {"name": name, "reads": reads, "percent": _round1(reads / total_reads * 100)}
+                    for name, reads in top
+                ],
+            }
+    return {"available": False, "tool": None, "taxa": []}
+
+
+def _build_general_stats(samples_data, checkm2_overview, host_removal_enabled):
+    """Build the compact run-level "General Statistics" context: per-sample
+    host-removal rings, run-level N50/CheckM2 ranges and top taxa. Every
+    sub-part degrades gracefully (has_ring=False, stat=None, etc.) when its
+    source data is missing, so the template never has to deal with broken or
+    partial values."""
+    n50_values = []
+    for sd in samples_data:
+        n50 = _to_float(sd["nanoplot_filtered"].get("read_length_n50"))
+        if n50 is None:
+            n50 = _to_float(sd["nanoplot_raw"].get("read_length_n50"))
+        if n50 is not None:
+            n50_values.append(n50)
+    n50_stat = _agg_stats(n50_values)
+
+    rings = []
+    any_host_data = False
+    for sd in samples_data:
+        host = sd.get("host_stats") or {}
+        host_pct = host.get("host_percentage")
+        non_host_pct = host.get("non_host_percentage")
+        has_ring = host_pct is not None and non_host_pct is not None
+        if has_ring:
+            any_host_data = True
+        rings.append({
+            "sample": sd["sample"],
+            "host_percentage": host_pct,
+            "non_host_percentage": non_host_pct,
+            "has_ring": has_ring,
+        })
+
+    host_removal_available = bool(host_removal_enabled and any_host_data)
+    top_taxa = _build_top_taxa(samples_data)
+
+    completeness = checkm2_overview.get("metrics", {}).get("completeness", {}).get("stat")
+    contamination = checkm2_overview.get("metrics", {}).get("contamination", {}).get("stat")
+
+    return {
+        "has_any_data": bool(n50_stat or checkm2_overview.get("available") or
+                              host_removal_available or top_taxa["available"]),
+        "n50": n50_stat,
+        "n50_range": _fmt_range(n50_stat, "int"),
+        "rings": rings,
+        "host_removal_available": host_removal_available,
+        "checkm2_available": checkm2_overview.get("available", False),
+        "completeness_range": _fmt_range(completeness, "pct"),
+        "contamination_range": _fmt_range(contamination, "pct"),
+        "top_taxa": top_taxa,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
@@ -503,6 +675,7 @@ def render(
     genome_inventories,
     pipeline_summaries,
     host_stats_jsons,
+    checkm2_reports,
     versions_json,
     filtering_method,
     preprocessing_enabled,
@@ -539,6 +712,8 @@ def render(
             "nanoplot_filtered": nanoplot_data.get("filtered", {}),
         })
 
+    checkm2_overview = _build_checkm2_overview(checkm2_reports)
+
     context = {
         "samples": samples,
         "samples_data": samples_data,
@@ -561,6 +736,8 @@ def render(
         "gtdbtk_rows": _build_gtdbtk(gtdbtk_bac120s, gtdbtk_ar53s),
         "nanoplot_overview": _build_nanoplot_overview(samples_data),
         "taxonomy_overview": _build_taxonomy_overview(samples_data),
+        "checkm2_overview": checkm2_overview,
+        "general_stats": _build_general_stats(samples_data, checkm2_overview, host_removal_enabled),
         # Interactive workflow diagram (SVG nodes/edges/legend). The static
         # _workflow_.png is still embedded as a base64 fallback for contexts
         # where the interactive SVG cannot be shown (e.g. printing).
@@ -612,6 +789,8 @@ def main():
     ap.add_argument("--pipeline-summaries", default="")
     ap.add_argument("--host-stats-jsons", default="",
                     help="Space-separated host-removal stats JSON files (one per sample)")
+    ap.add_argument("--checkm2-reports", default="",
+                    help="Space-separated CheckM2 quality_report.tsv files (one per binned sample)")
     ap.add_argument("--versions-json", default=os.path.join("Reports", "versions.json"),
                     help="versions.json written by the run wrapper")
     ap.add_argument("--filtering-method", default="chopper",
@@ -645,6 +824,7 @@ def main():
         genome_inventories=_split_paths(args.genome_inventories),
         pipeline_summaries=_split_paths(args.pipeline_summaries),
         host_stats_jsons=_split_paths(args.host_stats_jsons),
+        checkm2_reports=_split_paths(args.checkm2_reports),
         versions_json=args.versions_json,
         filtering_method=args.filtering_method,
         preprocessing_enabled=args.preprocessing_enabled.lower() not in ("false", "0", ""),
