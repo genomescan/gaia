@@ -9,8 +9,6 @@
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous"/>
   {{ plotly_js }}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
-          crossorigin="anonymous"></script>
   <style>
     :root {
       --nv-navy: #10164f;
@@ -155,7 +153,7 @@
     }
 
     .overview-grid {
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: 0.6fr 1fr;
       grid-template-rows: auto auto;
       margin-top: 22px;
       align-items: start;
@@ -1237,123 +1235,89 @@
     {% endif %}
   </section>
 
-  {% if kraken2_species or centrifuger_species %}
-  <div class="card mb-4 shadow-sm">
-    <div class="card-header fw-semibold">&#x1F52C; Taxonomy &ndash; top species per classifier</div>
-    <div class="card-body">
+  {% if taxonomy_overview.kraken2.has_data %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Taxonomic profiling</div>
+    <h2 class="panel-title h5">
+      Kraken2 &ndash; relative abundance by sample
+      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 5 are grouped as "Other".</span></span>
+    </h2>
+    <div id="taxonomy-kraken2-overview" class="plot" style="min-height: {{ [taxonomy_overview.kraken2.samples | length * 50 + 120, 300] | max }}px;"></div>
+  </section>
+  {% endif %}
 
-      {% if kraken2_species %}
-      {% set top_pct = kraken2_species | sum(attribute='percent') %}
-      <h6 class="mt-2">
-        Kraken2 &ndash; top {{ kraken2_species | length }} species
-        <small class="text-muted ms-2">(top-{{ kraken2_species | length }} account for {{ "%.1f" | format(top_pct) }}% of all reads)</small>
-      </h6>
-      <canvas id="chart_kraken2" style="max-height:320px;"></canvas>
-      <script>
-      (function(){
-        var ctx = document.getElementById('chart_kraken2').getContext('2d');
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: {{ kraken2_species | map(attribute='name') | list | tojson }},
-            datasets: [{
-              label: 'Reads',
-              data: {{ kraken2_species | map(attribute='reads') | list | tojson }},
-              backgroundColor: 'rgba(0, 167, 207, 0.75)',
-              borderColor: 'rgba(0, 167, 207, 0.75)',
-              borderWidth: 1
-            }]
-          },
-          options: {
-            indexAxis: 'y',
-            responsive: true,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    var pct = {{ kraken2_species | map(attribute='percent') | list | tojson }}[context.dataIndex];
-                    return 'Reads: ' + context.parsed.x.toLocaleString() + ' (' + pct + '%)';
-                  }
-                }
-              }
-            },
-            scales: { x: { beginAtZero: true } }
-          }
-        });
-      })();
-      </script>
-      <div class="table-responsive mt-3">
-        <table class="table table-sm table-striped table-hover align-middle">
-          <thead class="table-dark"><tr><th>Species</th><th>Reads</th><th>% of total</th></tr></thead>
-          <tbody>
-            {% for row in kraken2_species %}
-            <tr><td>{{ row.name }}</td><td>{{ row.reads | int }}</td><td>{{ row.percent }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      {% if centrifuger_species %}
-      {% set top_pct = centrifuger_species | sum(attribute='percent') %}
-      <h6 class="mt-4">
-        Centrifuger &ndash; top {{ centrifuger_species | length }} species
-        <small class="text-muted ms-2">(top-{{ centrifuger_species | length }} total abundance: {{ "%.4f" | format(top_pct) }})</small>
-      </h6>
-      <canvas id="chart_centrifuger" style="max-height:320px;"></canvas>
-      <script>
-      (function(){
-        var ctx = document.getElementById('chart_centrifuger').getContext('2d');
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: {{ centrifuger_species | map(attribute='name') | list | tojson }},
-            datasets: [{
-              label: 'Reads',
-              data: {{ centrifuger_species | map(attribute='reads') | list | tojson }},
-              backgroundColor: 'rgba(17, 17, 102, 0.75)',
-              borderColor: 'rgba(17, 17, 102, 0.75)',
-              borderWidth: 1
-            }]
-          },
-          options: {
-            indexAxis: 'y',
-            responsive: true,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    var pct = {{ centrifuger_species | map(attribute='percent') | list | tojson }}[context.dataIndex];
-                    return 'Reads: ' + context.parsed.x.toLocaleString() + ' (' + pct + '%)';
-                  }
-                }
-              }
-            },
-            scales: { x: { beginAtZero: true } }
-          }
-        });
-      })();
-      </script>
-      <div class="table-responsive mt-3">
-        <table class="table table-sm table-striped table-hover align-middle">
-          <thead class="table-dark"><tr><th>Species</th><th>Reads</th><th>Abundance (%)</th></tr></thead>
-          <tbody>
-            {% for row in centrifuger_species %}
-            <tr><td>{{ row.name }}</td><td>{{ row.reads | int }}</td><td>{{ row.percent }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-    </div>
-  </div>
+  {% if taxonomy_overview.centrifuger.has_data %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Taxonomic profiling</div>
+    <h2 class="panel-title h5">
+      Centrifuger &ndash; relative abundance by sample
+      <span class="help-icon">?<span class="help-tooltip">100% stacked horizontal bar chart showing species relative abundance per sample. Hover a segment to see species name, read count and percentage. All species beyond the top 5 are grouped as "Other".</span></span>
+    </h2>
+    <div id="taxonomy-centrifuger-overview" class="plot" style="min-height: {{ [taxonomy_overview.centrifuger.samples | length * 50 + 120, 300] | max }}px;"></div>
+  </section>
   {% endif %}
 
   </main>
   </div>
 </div>
+
+<script>
+  (function() {
+    var taxData = {{ taxonomy_overview | tojson }};
+    var palette = [
+      '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
+      '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
+      '#19b6d4','#10164f'
+    ];
+    var otherColor = '#cccccc';
+
+    function renderTaxonomy(divId, tool) {
+      var d = taxData[tool];
+      if (!d || !d.has_data) return;
+      var el = document.getElementById(divId);
+      if (!el) return;
+
+      var species = d.species;
+      var samples = d.samples;
+
+      var traces = species.map(function(sp, si) {
+        var pcts = [], readCounts = [];
+        samples.forEach(function(smp) {
+          var entry = d.data[smp] && d.data[smp][sp];
+          pcts.push(entry ? entry.percent : 0);
+          readCounts.push(entry ? entry.reads : 0);
+        });
+        return {
+          name: sp,
+          x: pcts,
+          y: samples,
+          customdata: readCounts,
+          type: 'bar',
+          orientation: 'h',
+          marker: { color: sp === 'Other' ? otherColor : palette[si % palette.length] },
+          hovertemplate: sp + ': %{customdata:,} reads (%{x:.1f}%)<extra></extra>',
+          textposition: 'none'
+        };
+      });
+
+      var layout = {
+        barmode: 'stack',
+        hovermode: 'y unified',
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: '"Segoe UI", Arial, sans-serif', color: '#1d2840' },
+        xaxis: { title: 'Relative abundance (%)', range: [0, 100], ticksuffix: '%' },
+        yaxis: { automargin: true },
+        legend: { orientation: 'h', y: -0.25, traceorder: 'normal' },
+        margin: { t: 20, b: 120, l: 160, r: 20 },
+        hoverlabel: { bgcolor: '#10164f', font: { color: '#fff', size: 12 }, bordercolor: '#19b6d4' }
+      };
+      Plotly.newPlot(divId, traces, layout, { responsive: true, displayModeBar: false });
+    }
+
+    renderTaxonomy('taxonomy-kraken2-overview', 'kraken2');
+    renderTaxonomy('taxonomy-centrifuger-overview', 'centrifuger');
+  })();
+</script>
 </body>
 </html>
