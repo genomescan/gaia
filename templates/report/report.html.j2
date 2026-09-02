@@ -491,28 +491,28 @@
     /* General Statistics section: compact per-sample host-removal rings */
     .genstats-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
+      grid-template-columns: minmax(220px, 1fr) 2fr;
+      gap: 20px;
       align-items: start;
     }
 
     .ring-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 14px;
     }
 
     .ring-item {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 50px;
+      width: 62px;
     }
 
     .ring-circle {
       position: relative;
-      width: 48px;
-      height: 48px;
+      width: 54px;
+      height: 54px;
       border-radius: 50%;
     }
 
@@ -536,15 +536,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.55rem;
+      font-size: 0.62rem;
       font-weight: 700;
       color: var(--nv-navy);
       text-align: center;
     }
 
     .ring-label {
-      margin-top: 4px;
-      font-size: 0.65rem;
+      margin-top: 6px;
+      font-size: 0.7rem;
       color: var(--nv-muted);
       text-align: center;
       word-break: break-word;
@@ -553,10 +553,10 @@
 
     .ring-legend {
       display: flex;
-      gap: 10px;
-      font-size: 0.72rem;
+      gap: 14px;
+      font-size: 0.78rem;
       color: var(--nv-muted);
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .ring-legend .legend-swatch {
@@ -567,21 +567,21 @@
     .taxa-bar-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
     .taxa-bar-row {
       display: grid;
-      grid-template-columns: minmax(100px, 1fr) 2fr auto;
+      grid-template-columns: minmax(120px, 1fr) 3fr auto;
       align-items: center;
-      gap: 8px;
-      font-size: 0.76rem;
+      gap: 10px;
+      font-size: 0.82rem;
     }
 
     .taxa-bar-track {
       background: #eef2f8;
       border-radius: 999px;
-      height: 8px;
+      height: 10px;
       overflow: hidden;
     }
 
@@ -687,10 +687,6 @@
 
       .hero-stats,
       .metrics-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .overview-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -859,11 +855,11 @@
       {% else %}
       <div class="genstats-grid">
         <div>
-          <h3 class="panel-title h6" style="margin-bottom: 6px; font-size: 0.85rem;">Host removal</h3>
+          <h3 class="panel-title h6" style="margin-bottom: 6px;">Host removal by sample</h3>
           {% if general_stats.host_removal_available %}
           <div class="ring-legend">
             <span class="tag"><span class="legend-swatch" style="background: var(--nv-navy-soft);"></span>Host</span>
-            <span class="tag"><span class="legend-swatch" style="background: var(--nv-cyan);"></span>Retained</span>
+            <span class="tag"><span class="legend-swatch" style="background: var(--nv-cyan);"></span>Retained (non-host)</span>
           </div>
           <div class="ring-grid">
             {% for r in general_stats.rings %}
@@ -883,51 +879,147 @@
             {% endfor %}
           </div>
           {% else %}
-          <div class="empty-state" style="padding: 10px; font-size: 0.78rem;">Host removal data unavailable.</div>
+          <div class="empty-state">Host read removal statistics unavailable for this run.</div>
           {% endif %}
         </div>
 
         <div>
-          <h3 class="panel-title h6" style="margin-bottom: 6px; font-size: 0.85rem;">Quality metrics</h3>
-          <div style="display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 0.75rem;">
-            <div style="padding: 8px; background: #f8fbff; border: 1px solid var(--nv-border); border-radius: 10px;">
-              <div style="color: var(--nv-muted); margin-bottom: 2px;">Read N50</div>
-              <div style="color: var(--nv-navy); font-weight: 600;">{{ general_stats.n50_range }}</div>
+          <h3 class="panel-title h6" style="margin-bottom: 6px;">Across all samples</h3>
+          <div class="metrics-grid dense mb-3">
+            <div class="metric">
+              <div class="stat-label">Read N50 (bp)</div>
+              <div class="stat-value">{{ general_stats.n50_range }}</div>
             </div>
-            {% if general_stats.checkm2_available %}
-            <div style="padding: 8px; background: #f8fbff; border: 1px solid var(--nv-border); border-radius: 10px;">
-              <div style="color: var(--nv-muted); margin-bottom: 2px;">Completeness</div>
-              <div style="color: var(--nv-navy); font-weight: 600;">{{ general_stats.completeness_range }}</div>
+            <div class="metric">
+              <div class="stat-label">Predicted completeness (CheckM2)</div>
+              <div class="stat-value">{{ general_stats.completeness_range if general_stats.checkm2_available else "—" }}</div>
             </div>
-            <div style="padding: 8px; background: #f8fbff; border: 1px solid var(--nv-border); border-radius: 10px;">
-              <div style="color: var(--nv-muted); margin-bottom: 2px;">Contamination</div>
-              <div style="color: var(--nv-navy); font-weight: 600;">{{ general_stats.contamination_range }}</div>
+            <div class="metric">
+              <div class="stat-label">Predicted contamination (CheckM2)</div>
+              <div class="stat-value">{{ general_stats.contamination_range if general_stats.checkm2_available else "—" }}</div>
             </div>
-            {% endif %}
           </div>
-        </div>
+          {% if not general_stats.checkm2_available %}
+          <div class="empty-state">CheckM2 statistics unavailable for this run.</div>
+          {% endif %}
 
-        {% if general_stats.top_taxa.available %}
-        <div>
-          <h3 class="panel-title h6" style="margin-bottom: 6px; font-size: 0.85rem;">Top taxa</h3>
+          <h3 class="panel-title h6" style="margin: 16px 0 6px;">Top taxa (all samples)</h3>
+          {% if general_stats.top_taxa.available %}
           <div class="taxa-bar-list">
-            {% for item in general_stats.top_taxa.taxa[:4] %}
+            {% for item in general_stats.top_taxa.taxa %}
             <div class="taxa-bar-row">
-              <span style="font-size: 0.7rem;"><em>{{ item.name }}</em></span>
+              <span><em>{{ item.name }}</em></span>
               <div class="taxa-bar-track"><div class="taxa-bar-fill" style="width: {{ item.percent }}%;"></div></div>
-              <span style="font-size: 0.7rem;">{{ item.percent }}%</span>
+              <span>{{ item.percent }}%</span>
             </div>
             {% endfor %}
           </div>
-          <p class="muted" style="font-size: 0.7rem; margin-top: 4px;">{{ general_stats.top_taxa.tool }}</p>
+          <p class="muted" style="font-size: 0.78rem; margin-top: 6px;">Source: {{ general_stats.top_taxa.tool }}, aggregated across all samples.</p>
+          {% else %}
+          <div class="empty-state">No taxonomic profiling data was available for this run.</div>
+          {% endif %}
         </div>
-        {% endif %}
       </div>
       {% endif %}
     </div>
   </section>
 
   <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Run overview</div>
+    <h2 class="panel-title h5">
+      Assembly overview
+      <span class="help-icon">?<span class="help-tooltip">Run-level assembly quality summary: samples with successful assembly, total contig counts, and median N50 across samples. Per-sample[...]
+    </h2>
+    {% if assembly_overview.enabled %}
+      {% if assembly_overview.rows %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              <th>Contig count</th>
+              <th>Total length</th>
+              <th>N50</th>
+              <th>Largest contig</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in assembly_overview.rows %}
+            <tr>
+              <td>{{ row.sample }}</td>
+              <td>{{ row.contig_count }}</td>
+              <td>{{ row.total_length }}</td>
+              <td>{{ row.n50 }}</td>
+              <td>{{ row.largest_contig }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">No assembly data was available for this run.</div>
+      {% endif %}
+    {% else %}
+    <div class="empty-state">Assembly was not run for this pipeline execution.</div>
+    {% endif %}
+  </section>
+
+  <section class="section-card" style="margin-top: 18px;">
+    <div class="section-kicker">Run overview</div>
+    <h2 class="panel-title h5">
+      Binning overview
+      <span class="help-icon">?<span class="help-tooltip">Genome recovery summary: per-sample binning results (final genome counts and quality estimates), collapsed across samples. Samples[...]
+    </h2>
+    {% if binning_overview.enabled %}
+      {% if binning_overview.applicable %}
+        {% if binning_overview.not_binned_samples %}
+        <div class="empty-state" style="margin-bottom: 16px;">
+          No binning results for: <code>{{ binning_overview.not_binned_samples | join(", ") }}</code> (check that assembly succeeded before binning).
+        </div>
+        {% endif %}
+        {% if binning_overview.rows %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Sample</th>
+                <th>Binned</th>
+                <th>Final genomes</th>
+                <th>Prokaryotic bins</th>
+                <th>High-quality prok.</th>
+                <th>Medium-quality prok.</th>
+                <th>Eukaryotic bins</th>
+                <th>Euk. w/ taxonomy</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for row in binning_overview.rows %}
+              <tr>
+                <td>{{ row.sample }}</td>
+                <td>{{ "✓" if row.binned else "✗" }}</td>
+                <td>{{ row.total_final_genomes }}</td>
+                <td>{{ row.total_bins_prok }}</td>
+                <td>{{ row.high_quality_prok }}</td>
+                <td>{{ row.medium_quality_prok }}</td>
+                <td>{{ row.total_bins_euk }}</td>
+                <td>{{ row.euk_bins_with_taxonomy }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No binning data was available for this run.</div>
+        {% endif %}
+      {% else %}
+      <div class="empty-state">Binning was not applicable (assembly was skipped for this run).</div>
+      {% endif %}
+    {% else %}
+    <div class="empty-state">Binning was not run for this pipeline execution.</div>
+    {% endif %}
+  </section>
+
+  <section class="section-card" style="margin-top: 18px;">
     <div class="section-kicker">Read quality</div>
     <h2 class="panel-title h5">
       NanoPlot metrics
@@ -1014,3 +1106,114 @@
       </div>
     </details>
   </section>
+
+  <section class="section-card" style="margin-top: 18px;">
+    <div class="section-kicker">Genome quality</div>
+    <h2 class="panel-title h5">
+      CheckM2 summary
+      <span class="help-icon">?<span class="help-tooltip">Run-level genome quality summary: aggregate ranges for completeness and contamination across all binned genomes. Per-genome details[...]
+    </h2>
+    {% if checkm2_overview.available %}
+      {% if checkm2_overview.genome_count > 0 %}
+      <div class="metrics-grid mb-3">
+        <div class="metric">
+          <div class="stat-label">Total genomes</div>
+          <div class="stat-value">{{ checkm2_overview.genome_count }}</div>
+        </div>
+        <div class="metric">
+          <div class="stat-label">Samples with results</div>
+          <div class="stat-value">{{ checkm2_overview.sample_count }}</div>
+        </div>
+        {% for key, val in checkm2_overview.metrics.items() %}
+        <div class="metric">
+          <div class="stat-label">{{ val.stat.label if val.stat else key | replace('_', ' ') | title }}</div>
+          <div class="stat-value">{{ val.range }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if checkm2_overview.rows %}
+      <h3 class="panel-title h6" style="margin: 14px 0 6px;">Per sample / genome</h3>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              <th>User genome</th>
+              <th>Completeness (%)</th>
+              <th>Contamination (%)</th>
+              <th>Coding density (%)</th>
+              <th>Avg gene length (bp)</th>
+              <th>Genome size (bp)</th>
+              <th>GC (%)</th>
+              <th>Total CDS</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in checkm2_overview.rows %}
+            <tr>
+              <td>{{ row.sample }}</td>
+              <td><code>{{ row.user_genome }}</code></td>
+              <td>{{ row.completeness }}</td>
+              <td>{{ row.contamination }}</td>
+              <td>{{ row.coding_density }}</td>
+              <td>{{ row.average_gene_length }}</td>
+              <td>{{ row.genome_size }}</td>
+              <td>{{ row.gc_content }}</td>
+              <td>{{ row.total_coding_sequences }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="empty-state">No CheckM2 data was available for this run.</div>
+      {% endif %}
+    {% else %}
+    <div class="empty-state">CheckM2 was not run for this pipeline execution.</div>
+    {% endif %}
+  </section>
+
+  <section class="section-card" style="margin-top: 18px;">
+    <div class="section-kicker">Taxonomy</div>
+    <h2 class="panel-title h5">
+      GTDB-Tk classification
+      <span class="help-icon">?<span class="help-tooltip">Prokaryotic genome taxonomy: GTDB-Tk assignments for all quality-assessed bins, including ANI to closest reference and closest-p[...]
+    </h2>
+    {% if gtdbtk_rows %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>User genome</th>
+            <th>Classification</th>
+            <th>ANI (%)</th>
+            <th>AF (%)</th>
+            <th>RED</th>
+            <th>Warnings</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in gtdbtk_rows %}
+          <tr>
+            <td><code>{{ row.user_genome }}</code></td>
+            <td><em>{{ row.classification }}</em></td>
+            <td>{{ row.ani }}</td>
+            <td>{{ row.af }}</td>
+            <td>{{ row.red }}</td>
+            <td><span class="muted" style="font-size: 0.85rem;">{{ row.warnings }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No GTDB-Tk taxonomy data was available for this run.</div>
+    {% endif %}
+  </section>
+
+  </main>
+  </div>
+</div>
+</body>
+</html>
