@@ -137,6 +137,12 @@ rule render_run_report:
             preprocessing_path("{sample}", "{sample}.host_removal_stats.json"),
             sample=SAMPLES
         ) if HOST_REMOVAL_ENABLED else [],
+        checkm2_reports=(
+            lambda wc: [
+                refinement_path("Prokaryotic", "CheckM2", s, "quality_report.tsv")
+                for s in binning_samples()
+            ]
+        ) if CHECKM2_ENABLED else [],
         versions_json=os.path.join("Reports", "versions.json")
     output:
         html=os.path.join("Reports", "report.html")
@@ -174,6 +180,7 @@ rule render_run_report:
           --genome-inventories "{input.genome_inventories}" \
           --pipeline-summaries "{input.pipeline_summaries}" \
           --host-stats-jsons "{input.host_stats}" \
+          --checkm2-reports "{input.checkm2_reports}" \
           --versions-json "{input.versions_json}" \
           --filtering-method "{params.filtering_method}" \
           --preprocessing-enabled "{params.preprocessing_enabled}" \

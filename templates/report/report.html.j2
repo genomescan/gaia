@@ -347,6 +347,10 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .metrics-grid.dense {
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
     .metric {
       padding: 16px 18px;
       border: 1px solid var(--nv-border);
@@ -483,6 +487,109 @@
       display: block;
     }
 
+    /* General Statistics section: compact per-sample host-removal rings */
+    .genstats-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 2fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .ring-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .ring-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 62px;
+    }
+
+    .ring-circle {
+      position: relative;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+    }
+
+    .ring-circle::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      background: var(--nv-card);
+      z-index: 0;
+    }
+
+    .ring-circle.ring-empty {
+      background: repeating-conic-gradient(#e3e9f2 0deg 30deg, #eef2f8 30deg 60deg);
+    }
+
+    .ring-inner {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--nv-navy);
+      text-align: center;
+    }
+
+    .ring-label {
+      margin-top: 6px;
+      font-size: 0.7rem;
+      color: var(--nv-muted);
+      text-align: center;
+      word-break: break-word;
+      max-width: 100%;
+    }
+
+    .ring-legend {
+      display: flex;
+      gap: 14px;
+      font-size: 0.78rem;
+      color: var(--nv-muted);
+      margin-bottom: 12px;
+    }
+
+    .ring-legend .legend-swatch {
+      width: 10px;
+      height: 10px;
+    }
+
+    .taxa-bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .taxa-bar-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) 3fr auto;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+    }
+
+    .taxa-bar-track {
+      background: #eef2f8;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .taxa-bar-fill {
+      background: linear-gradient(90deg, var(--nv-cyan) 0%, var(--nv-navy-soft) 100%);
+      height: 100%;
+      border-radius: 999px;
+    }
+
     @media (max-width: 1080px) {
       .layout {
         grid-template-columns: 1fr;
@@ -494,6 +601,10 @@
 
       .section-card.split {
         grid-column: span 12;
+      }
+
+      .genstats-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -667,6 +778,139 @@
 			{% endif %}
     </div>
   </section>
+
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Run overview</div>
+    <h2 class="panel-title h5">
+      General Statistics
+      <span class="help-icon">?<span class="help-tooltip">Compact run-level summary: one ring per sample showing the host-removal/retained-read split, alongside run-wide ranges for read N50 and CheckM2 predicted completeness/contamination, and the aggregated top taxa across all samples. Not a per-sample table &mdash; see the dedicated sections below for full detail.</span></span>
+    </h2>
+
+    {% if not general_stats.has_any_data %}
+    <div class="empty-state">Insufficient data to build a General Statistics summary for this run (host-removal, CheckM2 and taxonomy outputs were all unavailable).</div>
+    {% else %}
+    <div class="genstats-grid">
+      <div>
+        <h3 class="panel-title h6" style="margin-bottom: 6px;">Host removal by sample</h3>
+        {% if general_stats.host_removal_available %}
+        <div class="ring-legend">
+          <span class="tag"><span class="legend-swatch" style="background: var(--nv-navy-soft);"></span>Host</span>
+          <span class="tag"><span class="legend-swatch" style="background: var(--nv-cyan);"></span>Retained (non-host)</span>
+        </div>
+        <div class="ring-grid">
+          {% for r in general_stats.rings %}
+          <div class="ring-item">
+            {% if r.has_ring %}
+            <div class="ring-circle" title="{{ r.sample }}: {{ r.non_host_percentage }}% retained, {{ r.host_percentage }}% host"
+                 style="background: conic-gradient(var(--nv-cyan) 0% {{ r.non_host_percentage }}%, var(--nv-navy-soft) {{ r.non_host_percentage }}% 100%);">
+              <div class="ring-inner">{{ r.non_host_percentage }}%</div>
+            </div>
+            {% else %}
+            <div class="ring-circle ring-empty" title="{{ r.sample }}: host-removal stats unavailable">
+              <div class="ring-inner">—</div>
+            </div>
+            {% endif %}
+            <div class="ring-label">{{ r.sample }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">Host read removal statistics unavailable for this run.</div>
+        {% endif %}
+      </div>
+
+      <div>
+        <h3 class="panel-title h6" style="margin-bottom: 6px;">Run-level ranges</h3>
+        <div class="metrics-grid dense mb-3">
+          <div class="metric">
+            <div class="stat-label">Read N50 (bp)</div>
+            <div class="stat-value">{{ general_stats.n50_range }}</div>
+          </div>
+          <div class="metric">
+            <div class="stat-label">Predicted completeness (CheckM2)</div>
+            <div class="stat-value">{{ general_stats.completeness_range if general_stats.checkm2_available else "—" }}</div>
+          </div>
+          <div class="metric">
+            <div class="stat-label">Predicted contamination (CheckM2)</div>
+            <div class="stat-value">{{ general_stats.contamination_range if general_stats.checkm2_available else "—" }}</div>
+          </div>
+        </div>
+        {% if not general_stats.checkm2_available %}
+        <div class="empty-state">CheckM2 statistics unavailable for this run.</div>
+        {% endif %}
+
+        <h3 class="panel-title h6" style="margin: 16px 0 6px;">Top taxa (all samples)</h3>
+        {% if general_stats.top_taxa.available %}
+        <div class="taxa-bar-list">
+          {% for item in general_stats.top_taxa.taxa %}
+          <div class="taxa-bar-row">
+            <span><em>{{ item.name }}</em></span>
+            <div class="taxa-bar-track"><div class="taxa-bar-fill" style="width: {{ item.percent }}%;"></div></div>
+            <span>{{ item.percent }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="muted" style="font-size: 0.78rem; margin-top: 6px;">Source: {{ general_stats.top_taxa.tool }}, aggregated across all samples.</p>
+        {% else %}
+        <div class="empty-state">No taxonomic profiling data was available for this run.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  {% if checkm2_overview.available %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">
+      CheckM2 summary
+      <span class="help-icon">?<span class="help-tooltip">Run-level aggregate of CheckM2's quality_report.tsv across all binned samples (min &ndash; max, median where the range is non-trivial). CheckM2 estimates genome completeness and contamination from predicted gene content.</span></span>
+    </h2>
+    <p class="muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+      <a href="https://github.com/chklovski/CheckM2" target="_blank" rel="noopener">CheckM2</a> quality assessment for {{ checkm2_overview.genome_count }} user genome(s) across all samples.
+    </p>
+    <div class="metrics-grid dense">
+      <div class="metric">
+        <div class="stat-label">User genomes</div>
+        <div class="stat-value">{{ checkm2_overview.genome_count }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Predicted completeness</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.completeness.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Predicted contamination</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.contamination.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Coding density</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.coding_density.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Average gene length (bp)</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.average_gene_length.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Genome size (bp)</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.genome_size.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">GC content</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.gc_content.range }}</div>
+      </div>
+      <div class="metric">
+        <div class="stat-label">Total coding sequences</div>
+        <div class="stat-value">{{ checkm2_overview.metrics.total_coding_sequences.range }}</div>
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <section class="section-card" style="margin-top: 22px;">
+    <div class="section-kicker">Genome reconstruction</div>
+    <h2 class="panel-title h5">CheckM2 summary</h2>
+    <div class="empty-state">CheckM2 statistics unavailable for this run.</div>
+  </section>
+  {% endif %}
 
   {% if assembly_overview.enabled %}
   <section class="section-card" style="margin-top: 22px;">
