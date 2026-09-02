@@ -316,6 +316,74 @@ def _round_species(rows):
     return out
 
 
+# Nanopore-oriented quality scale for the NanoPlot quality bars: modern ONT
+# basecalling tops out around Q20-Q30, so bars are drawn on a fixed Q0-Q30
+# axis with a Q20 ("high accuracy") reference marker instead of being scaled
+# to the observed maximum.
+_NANOPLOT_QUALITY_SCALE_MAX = 30.0
+_NANOPLOT_QUALITY_TARGET = 20.0
+
+# (metric key, label, unit suffix, _fmt_number kind, fixed scale maximum)
+_NANOPLOT_BAR_METRICS = [
+    ("median_read_length", "Median read length", " bp", "int", None),
+    ("read_length_n50", "Read length N50", " bp", "int", None),
+    ("median_read_quality", "Median read quality", "", "float1",
+     _NANOPLOT_QUALITY_SCALE_MAX),
+    ("number_of_reads", "Reads", "", "int", None),
+    ("total_bases", "Total bases", " bp", "int", None),
+]
+
+
+def _nanoplot_bar(value, scale_max, unit, kind):
+    """Render one thin-bar cell: percentage width plus a formatted label."""
+    num = _to_float(value)
+    if num is None or not scale_max:
+        return {"value": None, "label": "—", "width": 0}
+    width = max(0.0, min(100.0, num / scale_max * 100.0))
+    prefix = "Q" if kind == "float1" and scale_max == _NANOPLOT_QUALITY_SCALE_MAX else ""
+    return {
+        "value": num,
+        "label": f"{prefix}{_fmt_number(num, kind)}{unit}",
+        "width": round(width, 1),
+    }
+
+
+def _build_nanoplot_bars(samples_data):
+    """Build per-metric thin horizontal bar data (raw vs filtered per sample)."""
+    groups = []
+    for key, label, unit, kind, fixed_max in _NANOPLOT_BAR_METRICS:
+        values = []
+        for sd in samples_data:
+            values.append(_to_float(sd["nanoplot_raw"].get(key)))
+            values.append(_to_float(sd["nanoplot_filtered"].get(key)))
+        observed = [v for v in values if v is not None]
+        scale_max = fixed_max or (max(observed) if observed else None)
+        rows = []
+        for sd in samples_data:
+            rows.append({
+                "sample": sd["sample"],
+                "raw": _nanoplot_bar(sd["nanoplot_raw"].get(key), scale_max, unit, kind),
+                "filtered": _nanoplot_bar(sd["nanoplot_filtered"].get(key), scale_max, unit, kind),
+            })
+        groups.append({
+            "key": key,
+            "label": label,
+            "has_data": bool(observed),
+            "scale_max_label": (
+                (f"Q{int(scale_max)}" if fixed_max else _fmt_number(scale_max, kind) + unit)
+                if scale_max else "—"
+            ),
+            "scale_min_label": "Q0" if fixed_max else "0",
+            "marker": (
+                {"percent": round(_NANOPLOT_QUALITY_TARGET / scale_max * 100.0, 1),
+                 "label": f"Q{int(_NANOPLOT_QUALITY_TARGET)}"}
+                if fixed_max and scale_max else None
+            ),
+            "rows": rows,
+        })
+    return groups
+
+
 def _build_nanoplot_overview(samples_data):
     """Build cross-sample nanoplot data for the overview table."""
     samples = [sd["sample"] for sd in samples_data]
@@ -332,7 +400,12 @@ def _build_nanoplot_overview(samples_data):
         for key in keys:
             raw[key].append(sd["nanoplot_raw"].get(key))
             filtered[key].append(sd["nanoplot_filtered"].get(key))
-    return {"samples": samples, "raw": raw, "filtered": filtered}
+    return {
+        "samples": samples,
+        "raw": raw,
+        "filtered": filtered,
+        "bars": _build_nanoplot_bars(samples_data),
+    }
 
 
 def _build_taxonomy_overview(samples_data):
@@ -555,26 +628,48 @@ _CHECKM2_FIELDS = [
 ]
 
 
+def _checkm2_sample_from_path(path):
+    """CheckM2 reports live at .../CheckM2/<sample>/quality_report.tsv, so the
+    parent directory name identifies the sample."""
+    parent = os.path.basename(os.path.dirname(os.path.abspath(path or "")))
+    return parent or "—"
+
+
 def _build_checkm2_overview(checkm2_paths):
     """Aggregate CheckM2 quality_report.tsv files (one per binned sample) into
-    a single run-level summary. Returns {"available": False} gracefully when
-    no CheckM2 output could be read, so the template can hide the section."""
+    a single run-level summary plus a per-sample/per-genome table. Returns
+    {"available": False} gracefully when no CheckM2 output could be read, so
+    the template can hide the section."""
     rows = []
+    genome_rows = []
     for path in checkm2_paths:
-        rows.extend(_read_table(path))
+        sample = _checkm2_sample_from_path(path)
+        for row in _read_table(path):
+            rows.append(row)
+            genome_row = {
+                "sample": sample,
+                "user_genome": (row.get("Name") or "").strip() or "—",
+            }
+            for key, column, kind in _CHECKM2_FIELDS:
+                genome_row[key] = _fmt_number(_to_float(row.get(column)), kind)
+            genome_rows.append(genome_row)
 
     if not rows:
-        return {"available": False, "genome_count": 0, "metrics": {}}
+        return {"available": False, "genome_count": 0, "metrics": {}, "rows": []}
 
     metrics = {}
     for key, column, kind in _CHECKM2_FIELDS:
         stat = _agg_stats(row.get(column) for row in rows)
         metrics[key] = {"stat": stat, "range": _fmt_range(stat, kind)}
 
+    genome_rows.sort(key=lambda r: (r["sample"], r["user_genome"]))
+
     return {
         "available": True,
         "genome_count": len(rows),
+        "sample_count": len({r["sample"] for r in genome_rows}),
         "metrics": metrics,
+        "rows": genome_rows,
     }
 
 
