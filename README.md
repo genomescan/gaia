@@ -109,7 +109,8 @@ lr_mg_pipeline_final/
 │   ├── keep_euk_bins.py
 │   ├── merge_final_reports.py
 │   ├── report_pipeline_summary.py
-│   └── select_best_euk_bins.py
+│   ├── select_best_euk_bins.py
+│   └── tla_insert_softclip_msa.py
 ├── containers/
 │   └── def/
 │       ├── assembly.def
