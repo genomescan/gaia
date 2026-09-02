@@ -9,6 +9,8 @@
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous"/>
   {{ plotly_js }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+          crossorigin="anonymous"></script>
   <style>
     :root {
       --nv-navy: #10164f;
@@ -153,10 +155,26 @@
     }
 
     .overview-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: 1.2fr 1fr;
+      grid-template-rows: auto auto;
       margin-top: 22px;
       align-items: start;
       gap: 18px;
+    }
+
+    .overview-grid .panel-config {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+    }
+
+    .overview-grid .workflow-card {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .overview-grid .panel-stats {
+      grid-column: 2;
+      grid-row: 2;
     }
 
     .panel {
@@ -665,6 +683,13 @@
         grid-template-columns: 1fr;
       }
 
+      .overview-grid .panel-config,
+      .overview-grid .workflow-card,
+      .overview-grid .panel-stats {
+        grid-column: 1;
+        grid-row: auto;
+      }
+
       .section-card.split {
         grid-column: span 12;
       }
@@ -724,7 +749,7 @@
   </header>
 
   <section class="overview-grid">
-    <div class="panel">
+    <div class="panel panel-config">
       <h2 class="panel-title h5">Run configuration</h2>
       <div class="tag-list mb-3">
         <span class="tag">{{ "Preprocessing enabled" if preprocessing_enabled else "Preprocessing skipped" }}</span>
@@ -843,7 +868,7 @@
 			{% endif %}
     </div>
 
-    <div class="panel">
+    <div class="panel panel-stats">
       <div class="section-kicker">Run overview</div>
       <h2 class="panel-title h5" style="margin-bottom: 10px;">
         General Statistics
@@ -1211,6 +1236,121 @@
     <div class="empty-state">No GTDB-Tk taxonomy data was available for this run.</div>
     {% endif %}
   </section>
+
+  {% if kraken2_species or centrifuger_species %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header fw-semibold">&#x1F52C; Taxonomy &ndash; top species per classifier</div>
+    <div class="card-body">
+
+      {% if kraken2_species %}
+      {% set top_pct = kraken2_species | sum(attribute='percent') %}
+      <h6 class="mt-2">
+        Kraken2 &ndash; top {{ kraken2_species | length }} species
+        <small class="text-muted ms-2">(top-{{ kraken2_species | length }} account for {{ "%.1f" | format(top_pct) }}% of all reads)</small>
+      </h6>
+      <canvas id="chart_kraken2" style="max-height:320px;"></canvas>
+      <script>
+      (function(){
+        var ctx = document.getElementById('chart_kraken2').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: {{ kraken2_species | map(attribute='name') | list | tojson }},
+            datasets: [{
+              label: 'Reads',
+              data: {{ kraken2_species | map(attribute='reads') | list | tojson }},
+              backgroundColor: 'rgba(0, 167, 207, 0.75)',
+              borderColor: 'rgba(0, 167, 207, 0.75)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    var pct = {{ kraken2_species | map(attribute='percent') | list | tojson }}[context.dataIndex];
+                    return 'Reads: ' + context.parsed.x.toLocaleString() + ' (' + pct + '%)';
+                  }
+                }
+              }
+            },
+            scales: { x: { beginAtZero: true } }
+          }
+        });
+      })();
+      </script>
+      <div class="table-responsive mt-3">
+        <table class="table table-sm table-striped table-hover align-middle">
+          <thead class="table-dark"><tr><th>Species</th><th>Reads</th><th>% of total</th></tr></thead>
+          <tbody>
+            {% for row in kraken2_species %}
+            <tr><td>{{ row.name }}</td><td>{{ row.reads | int }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if centrifuger_species %}
+      {% set top_pct = centrifuger_species | sum(attribute='percent') %}
+      <h6 class="mt-4">
+        Centrifuger &ndash; top {{ centrifuger_species | length }} species
+        <small class="text-muted ms-2">(top-{{ centrifuger_species | length }} total abundance: {{ "%.4f" | format(top_pct) }})</small>
+      </h6>
+      <canvas id="chart_centrifuger" style="max-height:320px;"></canvas>
+      <script>
+      (function(){
+        var ctx = document.getElementById('chart_centrifuger').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: {{ centrifuger_species | map(attribute='name') | list | tojson }},
+            datasets: [{
+              label: 'Reads',
+              data: {{ centrifuger_species | map(attribute='reads') | list | tojson }},
+              backgroundColor: 'rgba(17, 17, 102, 0.75)',
+              borderColor: 'rgba(17, 17, 102, 0.75)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    var pct = {{ centrifuger_species | map(attribute='percent') | list | tojson }}[context.dataIndex];
+                    return 'Reads: ' + context.parsed.x.toLocaleString() + ' (' + pct + '%)';
+                  }
+                }
+              }
+            },
+            scales: { x: { beginAtZero: true } }
+          }
+        });
+      })();
+      </script>
+      <div class="table-responsive mt-3">
+        <table class="table table-sm table-striped table-hover align-middle">
+          <thead class="table-dark"><tr><th>Species</th><th>Reads</th><th>Abundance (%)</th></tr></thead>
+          <tbody>
+            {% for row in centrifuger_species %}
+            <tr><td>{{ row.name }}</td><td>{{ row.reads | int }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
 
   </main>
   </div>

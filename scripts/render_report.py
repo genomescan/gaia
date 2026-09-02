@@ -408,6 +408,24 @@ def _build_nanoplot_overview(samples_data):
     }
 
 
+def _build_species_summary(samples_data, tool_key, limit=10):
+    """Aggregate per-sample top species into a single run-level list, summing
+    reads and percentages across samples so single-sample runs keep their
+    original per-species percentages unchanged."""
+    reads_by_name = {}
+    percent_by_name = {}
+    for sd in samples_data:
+        for row in sd.get(tool_key + "_species", []):
+            name = row["name"]
+            reads_by_name[name] = reads_by_name.get(name, 0) + row["reads"]
+            percent_by_name[name] = percent_by_name.get(name, 0.0) + row.get("percent", 0.0)
+    top_names = sorted(reads_by_name, key=lambda n: reads_by_name[n], reverse=True)[:limit]
+    return [
+        {"name": name, "reads": reads_by_name[name], "percent": _round1(percent_by_name[name])}
+        for name in top_names
+    ]
+
+
 def _build_taxonomy_overview(samples_data):
     """Build cross-sample taxonomy data for 100% stacked bar charts."""
     def _process(tool_key):
@@ -829,6 +847,8 @@ def render(
         "assembly_overview": _build_assembly_overview(samples, assembly_stats_jsons, run_assembly),
         "binning_overview": _build_binning_overview(samples, genome_summaries, binning_enabled, run_assembly),
         "gtdbtk_rows": _build_gtdbtk(gtdbtk_bac120s, gtdbtk_ar53s),
+        "kraken2_species": _build_species_summary(samples_data, "kraken2"),
+        "centrifuger_species": _build_species_summary(samples_data, "centrifuger"),
         "nanoplot_overview": _build_nanoplot_overview(samples_data),
         "taxonomy_overview": _build_taxonomy_overview(samples_data),
         "checkm2_overview": checkm2_overview,
