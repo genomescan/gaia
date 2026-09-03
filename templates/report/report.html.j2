@@ -1133,29 +1133,12 @@
   <section class="section-card" style="margin-top: 18px;">
     <div class="section-kicker">Genome quality</div>
     <h2 class="panel-title h5">
-      CheckM2 summary
-      <span class="help-icon">?<span class="help-tooltip">Run-level genome quality summary: aggregate ranges for completeness and contamination across all binned genomes. Per-genome details[...]
+      CheckM2 overview
+      <span class="help-icon">?<span class="help-tooltip">Run-level genome quality summary: aggregate ranges for completeness and contamination across all binned genomes. Per-genome details[...]</span></span>
     </h2>
+
     {% if checkm2_overview.available %}
-      {% if checkm2_overview.genome_count > 0 %}
-      <div class="metrics-grid mb-3">
-        <div class="metric">
-          <div class="stat-label">Total genomes</div>
-          <div class="stat-value">{{ checkm2_overview.genome_count }}</div>
-        </div>
-        <div class="metric">
-          <div class="stat-label">Samples with results</div>
-          <div class="stat-value">{{ checkm2_overview.sample_count }}</div>
-        </div>
-        {% for key, val in checkm2_overview.metrics.items() %}
-        <div class="metric">
-          <div class="stat-label">{{ val.stat.label if val.stat else key | replace('_', ' ') | title }}</div>
-          <div class="stat-value">{{ val.range }}</div>
-        </div>
-        {% endfor %}
-      </div>
       {% if checkm2_overview.rows %}
-      <h3 class="panel-title h6" style="margin: 14px 0 6px;">Per sample / genome</h3>
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
@@ -1188,7 +1171,6 @@
           </tbody>
         </table>
       </div>
-      {% endif %}
       {% else %}
       <div class="empty-state">No CheckM2 data was available for this run.</div>
       {% endif %}
