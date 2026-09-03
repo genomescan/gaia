@@ -947,6 +947,94 @@
     </div>
   </section>
 
+  <section class="section-card" style="margin-top: 18px;">
+    <div class="section-kicker">Read quality</div>
+    <h2 class="panel-title h5">
+      NanoPlot metrics
+      <span class="help-icon">?<span class="help-tooltip">Per-sample read quality and length metrics from NanoPlot, comparing raw and filtered reads. Each metric is drawn as a thin horizontal bar[...]
+    </h2>
+    {% if nanoplot_overview.samples %}
+    <div class="ring-legend">
+      <span class="tag"><span class="legend-swatch" style="background: var(--nv-navy-soft);"></span>Raw</span>
+      <span class="tag"><span class="legend-swatch" style="background: var(--nv-cyan);"></span>Filtered</span>
+    </div>
+    <div class="np-groups">
+      {% for group in nanoplot_overview.bars %}
+      <div class="np-group">
+        <h3 class="panel-title h6" style="margin-bottom: 8px;">
+          {{ group.label }}
+          <span class="muted" style="font-weight: 400; font-size: 0.78rem;">(scale {{ group.scale_min_label }} – {{ group.scale_max_label }})</span>
+        </h3>
+        {% if group.has_data %}
+        <div class="np-bar-list">
+          {% for row in group.rows %}
+          <div class="np-bar-row">
+            <span class="np-bar-sample">{{ row.sample }}</span>
+            <div class="np-bar-tracks">
+              {% for kind, entry in [("raw", row.raw), ("filtered", row.filtered)] %}
+              <div class="np-bar-track" title="{{ row.sample }} – {{ kind }}: {{ entry.label }}">
+                <div class="np-bar-fill np-bar-{{ kind }}" style="width: {{ entry.width }}%;"></div>
+                {% if group.marker %}
+                <div class="np-bar-marker" style="left: {{ group.marker.percent }}%;" title="{{ group.marker.label }}"></div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            <span class="np-bar-values">{{ row.raw.label }} <span class="muted">&rarr;</span> {{ row.filtered.label }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% if group.marker %}
+        <p class="muted" style="font-size: 0.75rem; margin: 6px 0 0;">Dashed marker: {{ group.marker.label }} reference for Nanopore reads.</p>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">No {{ group.label | lower }} values were available.</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No NanoPlot metrics were available for this run.</div>
+    {% endif %}
+    <details style="margin-top: 16px;">
+      <summary style="cursor: pointer; font-weight: 600; color: var(--nv-navy); margin-bottom: 12px;">
+        Numeric table – Raw vs Filtered – {{ nanoplot_overview.samples | length }} sample(s)
+      </summary>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              <th>Median length – Raw</th><th>Median length – Filtered</th>
+              <th>N50 – Raw</th><th>N50 – Filtered</th>
+              <th>Median Qual – Raw</th><th>Median Qual – Filtered</th>
+              <th># Reads – Raw (K)</th><th># Reads – Filtered (K)</th>
+              <th>Total Bases – Raw (Mbp)</th><th>Total Bases – Filtered (Mbp)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for sample in nanoplot_overview.samples %}
+            {% set i = loop.index0 %}
+            <tr>
+              <td>{{ sample }}</td>
+              <td>{{ nanoplot_overview.raw.median_read_length[i] if nanoplot_overview.raw.median_read_length[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.median_read_length[i] if nanoplot_overview.filtered.median_read_length[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.read_length_n50[i] if nanoplot_overview.raw.read_length_n50[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.read_length_n50[i] if nanoplot_overview.filtered.read_length_n50[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.median_read_quality[i] if nanoplot_overview.raw.median_read_quality[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.median_read_quality[i] if nanoplot_overview.filtered.median_read_quality[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.number_of_reads[i] if nanoplot_overview.raw.number_of_reads[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.number_of_reads[i] if nanoplot_overview.filtered.number_of_reads[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.raw.total_bases[i] if nanoplot_overview.raw.total_bases[i] is not none else "—" }}</td>
+              <td>{{ nanoplot_overview.filtered.total_bases[i] if nanoplot_overview.filtered.total_bases[i] is not none else "—" }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+  
   <section class="section-card" style="margin-top: 22px;">
     <div class="section-kicker">Run overview</div>
     <h2 class="panel-title h5">
@@ -1040,94 +1128,6 @@
     {% else %}
     <div class="empty-state">Binning was not run for this pipeline execution.</div>
     {% endif %}
-  </section>
-
-  <section class="section-card" style="margin-top: 18px;">
-    <div class="section-kicker">Read quality</div>
-    <h2 class="panel-title h5">
-      NanoPlot metrics
-      <span class="help-icon">?<span class="help-tooltip">Per-sample read quality and length metrics from NanoPlot, comparing raw and filtered reads. Each metric is drawn as a thin horizontal bar[...]
-    </h2>
-    {% if nanoplot_overview.samples %}
-    <div class="ring-legend">
-      <span class="tag"><span class="legend-swatch" style="background: var(--nv-navy-soft);"></span>Raw</span>
-      <span class="tag"><span class="legend-swatch" style="background: var(--nv-cyan);"></span>Filtered</span>
-    </div>
-    <div class="np-groups">
-      {% for group in nanoplot_overview.bars %}
-      <div class="np-group">
-        <h3 class="panel-title h6" style="margin-bottom: 8px;">
-          {{ group.label }}
-          <span class="muted" style="font-weight: 400; font-size: 0.78rem;">(scale {{ group.scale_min_label }} – {{ group.scale_max_label }})</span>
-        </h3>
-        {% if group.has_data %}
-        <div class="np-bar-list">
-          {% for row in group.rows %}
-          <div class="np-bar-row">
-            <span class="np-bar-sample">{{ row.sample }}</span>
-            <div class="np-bar-tracks">
-              {% for kind, entry in [("raw", row.raw), ("filtered", row.filtered)] %}
-              <div class="np-bar-track" title="{{ row.sample }} – {{ kind }}: {{ entry.label }}">
-                <div class="np-bar-fill np-bar-{{ kind }}" style="width: {{ entry.width }}%;"></div>
-                {% if group.marker %}
-                <div class="np-bar-marker" style="left: {{ group.marker.percent }}%;" title="{{ group.marker.label }}"></div>
-                {% endif %}
-              </div>
-              {% endfor %}
-            </div>
-            <span class="np-bar-values">{{ row.raw.label }} <span class="muted">&rarr;</span> {{ row.filtered.label }}</span>
-          </div>
-          {% endfor %}
-        </div>
-        {% if group.marker %}
-        <p class="muted" style="font-size: 0.75rem; margin: 6px 0 0;">Dashed marker: {{ group.marker.label }} reference for Nanopore reads.</p>
-        {% endif %}
-        {% else %}
-        <div class="empty-state">No {{ group.label | lower }} values were available.</div>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state">No NanoPlot metrics were available for this run.</div>
-    {% endif %}
-    <details style="margin-top: 16px;">
-      <summary style="cursor: pointer; font-weight: 600; color: var(--nv-navy); margin-bottom: 12px;">
-        Numeric table – Raw vs Filtered – {{ nanoplot_overview.samples | length }} sample(s)
-      </summary>
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Sample</th>
-              <th>Median length – Raw</th><th>Median length – Filtered</th>
-              <th>N50 – Raw</th><th>N50 – Filtered</th>
-              <th>Median Qual – Raw</th><th>Median Qual – Filtered</th>
-              <th># Reads – Raw (K)</th><th># Reads – Filtered (K)</th>
-              <th>Total Bases – Raw (Mbp)</th><th>Total Bases – Filtered (Mbp)</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for sample in nanoplot_overview.samples %}
-            {% set i = loop.index0 %}
-            <tr>
-              <td>{{ sample }}</td>
-              <td>{{ nanoplot_overview.raw.median_read_length[i] if nanoplot_overview.raw.median_read_length[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.median_read_length[i] if nanoplot_overview.filtered.median_read_length[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.raw.read_length_n50[i] if nanoplot_overview.raw.read_length_n50[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.read_length_n50[i] if nanoplot_overview.filtered.read_length_n50[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.raw.median_read_quality[i] if nanoplot_overview.raw.median_read_quality[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.median_read_quality[i] if nanoplot_overview.filtered.median_read_quality[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.raw.number_of_reads[i] if nanoplot_overview.raw.number_of_reads[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.number_of_reads[i] if nanoplot_overview.filtered.number_of_reads[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.raw.total_bases[i] if nanoplot_overview.raw.total_bases[i] is not none else "—" }}</td>
-              <td>{{ nanoplot_overview.filtered.total_bases[i] if nanoplot_overview.filtered.total_bases[i] is not none else "—" }}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
   </section>
 
   <section class="section-card" style="margin-top: 18px;">
